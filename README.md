@@ -87,6 +87,12 @@ Other script or files are under the MIT-licensed.
 
 OKAMURA Naoki a.k.a. nyarla <nyarla@kalaclista.com>
 
+# Tested Environment
+
+- build on NixOS on WSL2
+- Based version of Carla VST Host is [v2.2.0](https://github.com/falkTX/Carla/releases/tag/v2.2.0)
+- Sandboxie version is [Release v0.4.3 / 5.43.7](https://github.com/sandboxie-plus/Sandboxie/releases/tag/v0.4.3)
+
 # NOTES
 
 - GPLv2-ed patchs includes original Carla source code

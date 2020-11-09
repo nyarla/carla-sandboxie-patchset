@@ -35,5 +35,3 @@ for app in Carla Carla.vst Carla.lv2 ; do
   
   cd ../
 done
-
-rm *.exe

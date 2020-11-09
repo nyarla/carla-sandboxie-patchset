@@ -80,15 +80,14 @@ func main() {
 	cmd.Wait()
 
 	fp := fmt.Sprintf("%s/carla-discovery.out", os.Getenv(`TEMP`))
-
-	fmt.Println(fp)
+	defer os.Remove(fp)
 
 	if out, err := ioutil.ReadFile(fp); err == nil {
 		os.Stdout.Write(out)
 	} else {
 		fmt.Fprint(os.Stderr, "%s\n", err)
+		os.Exit(1)
 	}
 
-	os.Remove(fp)
 	os.Exit(0)
 }

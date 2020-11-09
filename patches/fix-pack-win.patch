@@ -1,0 +1,140 @@
+diff --git a/data/windows/pack-win.sh b/data/windows/pack-win.sh
+index 8f6737978..d0bc1fb00 100755
+--- a/data/windows/pack-win.sh
++++ b/data/windows/pack-win.sh
+@@ -93,12 +93,10 @@ rm -rf Carla Carla.lv2 Carla.vst CarlaControl
+ 
+ # ---------------------------------------------------------------------------------------------------------------------
+ # freeze carla (console and gui)
+-
+ ${PYTHON_EXE} ./app-console.py build_exe
+ mv Carla/lib/library.zip Carla/lib/library-console.zip
+ ${PYTHON_EXE} ./app-gui.py build_exe
+ mv Carla/lib/library.zip Carla/lib/library-gui.zip
+-
+ mkdir Carla/lib/_lib
+ pushd Carla/lib/_lib
+ unzip -o ../library-console.zip
+@@ -139,39 +137,39 @@ unzip -o ../library-carla2.zip
+ zip -r -9 ../library.zip *
+ popd
+ rm -r Carla/resources/lib/_lib Carla/resources/lib/library-*.zip
+-
++cp -R ${MSYS2_PREFIX}/bin/Qt*.dll Carla/resources/lib/PyQt5/
+ # ---------------------------------------------------------------------------------------------------------------------
+ # cleanup pyqt stuff
+ 
+-find Carla CarlaControl -name "QAxContainer*" -delete
+-find Carla CarlaControl -name "QtDBus*" -delete
+-find Carla CarlaControl -name "QtDesigner*" -delete
+-find Carla CarlaControl -name "QtBluetooth*" -delete
+-find Carla CarlaControl -name "QtHelp*" -delete
+-find Carla CarlaControl -name "QtLocation*" -delete
+-find Carla CarlaControl -name "QtMultimedia*" -delete
+-find Carla CarlaControl -name "QtMultimediaWidgets*" -delete
+-find Carla CarlaControl -name "QtNetwork*" -delete
+-find Carla CarlaControl -name "QtNetworkAuth*" -delete
+-find Carla CarlaControl -name "QtNfc*" -delete
+-find Carla CarlaControl -name "QtPositioning*" -delete
+-find Carla CarlaControl -name "QtPrintSupport*" -delete
+-find Carla CarlaControl -name "QtQml*" -delete
+-find Carla CarlaControl -name "QtQuick*" -delete
+-find Carla CarlaControl -name "QtQuickWidgets*" -delete
+-find Carla CarlaControl -name "QtRemoteObjects*" -delete
+-find Carla CarlaControl -name "QtSensors*" -delete
+-find Carla CarlaControl -name "QtSerialPort*" -delete
+-find Carla CarlaControl -name "QtSql*" -delete
+-find Carla CarlaControl -name "QtTest*" -delete
+-find Carla CarlaControl -name "QtWebChannel*" -delete
+-find Carla CarlaControl -name "QtWebKit*" -delete
+-find Carla CarlaControl -name "QtWebKitWidgets*" -delete
+-find Carla CarlaControl -name "QtWebSockets*" -delete
+-find Carla CarlaControl -name "QtWinExtras*" -delete
+-find Carla CarlaControl -name "QtXml*" -delete
+-find Carla CarlaControl -name "QtXmlPatterns*" -delete
+-find Carla CarlaControl -name "*.pyi" -delete
++find Carla CarlaControl -name "QAxContainer*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtDBus*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtDesigner*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtBluetooth*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtHelp*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtLocation*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtMultimedia*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtMultimediaWidgets*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtNetwork*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtNetworkAuth*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtNfc*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtPositioning*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtPrintSupport*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtQml*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtQuick*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtQuickWidgets*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtRemoteObjects*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtSensors*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtSerialPort*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtSql*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtTest*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtWebChannel*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtWebKit*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtWebKitWidgets*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtWebSockets*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtWinExtras*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtXml*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "QtXmlPatterns*" -exec sh -c 'test -e {} || rm -rf {}' \;
++find Carla CarlaControl -name "*.pyi" -exec sh -c 'test -e {} || rm -rf {}' \;
+ 
+ # ---------------------------------------------------------------------------------------------------------------------
+ # copy relevant files to binary dir
+@@ -189,28 +187,12 @@ cp ../../bin/styles/carlastyle.dll Carla/styles/
+ 
+ cp ${MSYS2_PREFIX}/bin/Qt5{Core,Gui,OpenGL,Svg,Widgets}.dll Carla/
+ 
+-cp ${MSYS2_PREFIX}/bin/libbz2-1.dll             Carla/
+-cp ${MSYS2_PREFIX}/bin/libcrypto-1_*.dll        Carla/
+-cp ${MSYS2_PREFIX}/bin/libdouble-conversion.dll Carla/
+-cp ${MSYS2_PREFIX}/bin/libffi-6.dll             Carla/
+-cp ${MSYS2_PREFIX}/bin/libfreetype-6.dll        Carla/
+-cp ${MSYS2_PREFIX}/bin/libgcc_s_*.dll           Carla/
+-cp ${MSYS2_PREFIX}/bin/libglib-2.0-0.dll        Carla/
+-cp ${MSYS2_PREFIX}/bin/libgraphite2.dll         Carla/
+-cp ${MSYS2_PREFIX}/bin/libharfbuzz-0.dll        Carla/
+-cp ${MSYS2_PREFIX}/bin/libiconv-2.dll           Carla/
+-cp ${MSYS2_PREFIX}/bin/libicudt64.dll           Carla/
+-cp ${MSYS2_PREFIX}/bin/libicuin64.dll           Carla/
+-cp ${MSYS2_PREFIX}/bin/libicuuc64.dll           Carla/
+-cp ${MSYS2_PREFIX}/bin/libintl-8.dll            Carla/
+-cp ${MSYS2_PREFIX}/bin/libpcre-1.dll            Carla/
+-cp ${MSYS2_PREFIX}/bin/libpcre2-16-0.dll        Carla/
+-cp ${MSYS2_PREFIX}/bin/libpng16-16.dll          Carla/
+-cp ${MSYS2_PREFIX}/bin/libpython3.7m.dll        Carla/
+-cp ${MSYS2_PREFIX}/bin/libstdc++-6.dll          Carla/
+-cp ${MSYS2_PREFIX}/bin/libwinpthread-1.dll      Carla/
+-cp ${MSYS2_PREFIX}/bin/libzstd.dll              Carla/
+-cp ${MSYS2_PREFIX}/bin/zlib1.dll                Carla/
++mkdir -p Carla/lib
++for dll in $(\ls ${MSYS2_PREFIX}/bin/*.dll | grep -P '\.dll$' | grep -v 'Qt5'); do
++  cp $dll Carla
++  cp $dll Carla/lib
++  cp $dll Carla/resources/lib 
++done
+ 
+ # ---------------------------------------------------------------------------------------------------------------------
+ # also for CarlaControl
+@@ -241,7 +223,7 @@ mkdir -p Carla.lv2
+ cp -r Carla/*                Carla.lv2/
+ cp ../../bin/carla.lv2/*.dll Carla.lv2/
+ cp ../../bin/carla.lv2/*.ttl Carla.lv2/
+-mv Carla.lv2/{Qt5,lib,zlib}*.dll Carla.lv2/resources/
++mv Carla.lv2/{Qt5,lib}*.dll Carla.lv2/resources/
+ mv Carla.lv2/resources/libcarla_utils.dll Carla.lv2/
+ rm Carla.lv2/Carla.exe
+ rm Carla.lv2/CarlaDebug.exe
+@@ -254,7 +236,7 @@ rm -r Carla.lv2/lib
+ mkdir -p Carla.vst
+ cp -r Carla/*              Carla.vst/
+ cp ../../bin/CarlaVst*.dll Carla.vst/
+-mv Carla.vst/{Qt5,lib,zlib}*.dll Carla.vst/resources/
++mv Carla.vst/{Qt5,lib}*.dll Carla.vst/resources/
+ mv Carla.vst/resources/libcarla_utils.dll Carla.vst/
+ rm Carla.vst/Carla.exe
+ rm Carla.vst/CarlaDebug.exe

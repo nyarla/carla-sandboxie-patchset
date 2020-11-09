@@ -1,0 +1,127 @@
+diff --git a/data/patches/glib_skip-gettext.patch b/data/patches/glib_skip-gettext.patch
+index 3ef615dfd..f5d79a1df 100644
+--- a/data/patches/glib_skip-gettext.patch
++++ b/data/patches/glib_skip-gettext.patch
+@@ -1,3 +1,16 @@
++diff --git a/Makefile.in b/Makefile.in
++index 3402627..2ec7786 100644
++--- a/Makefile.in
+++++ b/Makefile.in
++@@ -401,7 +401,7 @@ EXTRA_DIST = ChangeLog.pre-2-20 ChangeLog.pre-2-18 ChangeLog.pre-2-16 \
++ 	gio-2.0-uninstalled.pc.in gio-unix-2.0-uninstalled.pc.in
++ TEST_PROGS = 
++ AUTOMAKE_OPTIONS = 1.7
++-SUBDIRS = . m4macros glib gmodule gthread gobject gio tests po docs
+++SUBDIRS = . m4macros glib gmodule gthread gobject gio tests
++ DIST_SUBDIRS = $(SUBDIRS) build
++ bin_SCRIPTS = glib-gettextize
++ AM_CPPFLAGS = \
+ diff --git a/acinclude.m4 b/acinclude.m4
+ index cac7f21..aff165a 100644
+ --- a/acinclude.m4
+@@ -7,14 +20,11 @@ index cac7f21..aff165a 100644
+  m4_include(glib/libcharset/codeset.m4)dnl
+  m4_include(glib/libcharset/glibc21.m4)dnl
+ -m4_include(m4macros/glib-gettext.m4)dnl
+-diff --git a/autogen.sh b/autogen.sh
+-old mode 100644
+-new mode 100755
+-diff --git a/configure.ac b/configure.ac
+-index b6640da..55262f3 100644
+---- a/configure.ac
+-+++ b/configure.ac
+-@@ -454,13 +454,6 @@ ALL_LINGUAS="`grep -v '^#' "$srcdir/po/LINGUAS" | tr '\n' ' '`"
++diff --git a/configure.in b/configure.in
++index b9c3342..91b1549 100644
++--- a/configure.in
+++++ b/configure.in
++@@ -465,13 +465,6 @@ ALL_LINGUAS="`grep -v '^#' "$srcdir/po/LINGUAS" | tr '\n' ' '`"
+  AC_SUBST([CONFIG_STATUS_DEPENDENCIES],['$(top_srcdir)/po/LINGUAS'])
+  GLIB_GNU_GETTEXT
+  
+@@ -28,36 +38,33 @@ index b6640da..55262f3 100644
+  LIBS="$INTLLIBS $LIBS"
+  
+  GETTEXT_PACKAGE=glib20
++@@ -479,8 +472,6 @@ AC_SUBST(GETTEXT_PACKAGE)
++ AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE, ["$GETTEXT_PACKAGE"], 
++   [Define the gettext package to be used])
++ 
++-GLIB_DEFINE_LOCALEDIR(GLIB_LOCALE_DIR)
++-
++ dnl
++ dnl Now we are done with gettext checks, figure out ICONV_LIBS
++ dnl
+ diff --git a/gio/gunixconnection.c b/gio/gunixconnection.c
+-index 3bfbd4f..f27e731 100644
++index 92ad246..72ef49f 100644
+ --- a/gio/gunixconnection.c
+ +++ b/gio/gunixconnection.c
+-@@ -26,6 +26,8 @@
+- #include <string.h>
+- #include <unistd.h>
++@@ -16,6 +16,8 @@
++ #include "gunixconnection.h"
++ #include "glibintl.h"
+  
+ +#define ngettext(t1, t2, n) t1
+ +
+  /**
+-  * SECTION:gunixconnection
++  * SECTION: gunixconnection
+   * @title: GUnixConnection
+-diff --git a/glib/ggettext.c b/glib/ggettext.c
+-index bf74ccb..2430a0d 100644
+---- a/glib/ggettext.c
+-+++ b/glib/ggettext.c
+-@@ -40,7 +40,6 @@
+- 
+- #include <string.h>
+- #include <locale.h>
+--#include <libintl.h>
+- 
+- #ifdef G_OS_WIN32
+- 
+ diff --git a/glib/gi18n.h b/glib/gi18n.h
+-index f765c3d..2c950cd 100644
++index c710046..163d6e0 100644
+ --- a/glib/gi18n.h
+ +++ b/glib/gi18n.h
+-@@ -20,13 +20,13 @@
++@@ -22,13 +22,13 @@
+  
+  #include <glib.h>
+  
+@@ -75,15 +82,28 @@ index f765c3d..2c950cd 100644
+ +#define bindtextdomain(...)
+ +
+  #endif  /* __G_I18N_H__ */
++diff --git a/glib/gutils.c b/glib/gutils.c
++index 744663e..fd845a7 100644
++--- a/glib/gutils.c
+++++ b/glib/gutils.c
++@@ -29,7 +29,7 @@
++  */
++ 
++ #include "config.h"
++-
+++#define GLIB_LOCALE_DIR ""
++ #ifdef HAVE_UNISTD_H
++ #include <unistd.h>
++ #endif
+ diff --git a/m4macros/Makefile.am b/m4macros/Makefile.am
+-index 971871c..8a4f40c 100644
++index 0284b4e..2cc3c02 100644
+ --- a/m4macros/Makefile.am
+ +++ b/m4macros/Makefile.am
+ @@ -1,6 +1,6 @@
+- include $(top_srcdir)/glib.mk
++ include $(top_srcdir)/Makefile.decl
+  
+--installed_m4= glib-2.0.m4 glib-gettext.m4 gsettings.m4
+-+installed_m4= glib-2.0.m4 gsettings.m4
++-installed_m4= glib-2.0.m4 glib-gettext.m4
+++installed_m4= glib-2.0.m4
+  
+  EXTRA_DIST+=$(installed_m4)
+  

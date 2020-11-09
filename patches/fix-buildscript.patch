@@ -1,0 +1,26 @@
+diff --git a/data/windows/build-win.sh b/data/windows/build-win.sh
+index 332f3288f..c535b3ed4 100755
+--- a/data/windows/build-win.sh
++++ b/data/windows/build-win.sh
+@@ -65,9 +65,9 @@ export STRIP=${_MINGW_PREFIX}-strip
+ export WINDRES=${_MINGW_PREFIX}-windres
+ 
+ export CFLAGS="-DPTW32_STATIC_LIB -DFLUIDSYNTH_NOT_A_DLL"
+-export CFLAGS="${CFLAGS} -I${DEPS_PREFIX}/include"
++export CFLAGS="${CFLAGS} -I${DEPS_PREFIX}/include -I${MSYS2_PREFIX}/include"
+ export CXXFLAGS="${CFLAGS}"
+-export LDFLAGS="-L${DEPS_PREFIX}/lib"
++export LDFLAGS="-L${DEPS_PREFIX}/lib -L${MSYS2_PREFIX}/lib"
+ 
+ export MOC_QT5="wine ${MSYS2_PREFIX}/bin/moc.exe"
+ export RCC_QT5="wine ${MSYS2_PREFIX}/bin/rcc.exe"
+@@ -94,7 +94,7 @@ if [ x"${ARCH}" != x"32" ]; then
+ fi
+ 
+ # Testing:
+-echo "export WINEPREFIX=~/.winepy3_x${ARCH}"
+-echo "/opt/wine-staging/bin/${PYTHON_EXE} ./source/frontend/carla"
++#echo "export WINEPREFIX=~/.winepy3_x${ARCH}"
++#echo "/opt/wine-staging/bin/${PYTHON_EXE} ./source/frontend/carla"
+ 
+ # ---------------------------------------------------------------------------------------------------------------------

@@ -1,0 +1,26 @@
+diff --git a/source/discovery/carla-discovery.cpp b/source/discovery/carla-discovery.cpp
+index d45e6a12a..ca98e66ba 100644
+--- a/source/discovery/carla-discovery.cpp
++++ b/source/discovery/carla-discovery.cpp
+@@ -68,6 +68,8 @@
+ #ifdef CARLA_OS_WIN
+ # include <pthread.h>
+ # include <objbase.h>
++# include <iostream>
++# include <fstream>
+ #endif
+ 
+ #ifdef HAVE_FLUIDSYNTH
+@@ -1652,6 +1654,12 @@ int main(int argc, char* argv[])
+         return 1;
+     }
+ 
++    const char* tempdir = std::getenv("TEMP");
++    char tempFile[MAX_PATH];
++    sprintf(tempFile, "%s/carla-discovery.out", tempdir);
++    std::ofstream out(tempFile);
++    std::cout.rdbuf(out.rdbuf());
++
+     const char* const stype    = argv[1];
+     const char* const filename = argv[2];
+     const PluginType  type     = getPluginTypeFromString(stype);

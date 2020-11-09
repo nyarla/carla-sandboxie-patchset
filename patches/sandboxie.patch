@@ -1,0 +1,434 @@
+diff --git a/source/utils/CarlaBridgeUtils.cpp b/source/utils/CarlaBridgeUtils.cpp
+index 84b756c06..7df275b97 100644
+--- a/source/utils/CarlaBridgeUtils.cpp
++++ b/source/utils/CarlaBridgeUtils.cpp
+@@ -17,15 +17,18 @@
+ 
+ #include "CarlaBridgeUtils.hpp"
+ #include "CarlaShmUtils.hpp"
++#include "CarlaSemUtils.hpp"
+ 
+ // must be last
+ #include "jackbridge/JackBridge.hpp"
+ 
+ #if defined(CARLA_OS_WIN) && defined(BUILDING_CARLA_FOR_WINDOWS)
+-# define PLUGIN_BRIDGE_NAMEPREFIX_AUDIO_POOL    "Local\\carla-bridge_shm_ap_"
+-# define PLUGIN_BRIDGE_NAMEPREFIX_RT_CLIENT     "Local\\carla-bridge_shm_rtC_"
+-# define PLUGIN_BRIDGE_NAMEPREFIX_NON_RT_CLIENT "Local\\carla-bridge_shm_nonrtC_"
+-# define PLUGIN_BRIDGE_NAMEPREFIX_NON_RT_SERVER "Local\\carla-bridge_shm_nonrtS_"
++# define PLUGIN_BRIDGE_NAMEPREFIX_AUDIO_POOL    "carla-bridge_shm_ap_"
++# define PLUGIN_BRIDGE_NAMEPREFIX_RT_CLIENT     "carla-bridge_shm_rtC_"
++# define PLUGIN_BRIDGE_NAMEPREFIX_NON_RT_CLIENT "carla-bridge_shm_nonrtC_"
++# define PLUGIN_BRIDGE_NAMEPREFIX_NON_RT_SERVER "carla-bridge_shm_nonrtS_"
++# define PLUGIN_BRIDGE_NANEPREFIX_SEM_SERVER    "carla-bridge_sem_rtS_"
++# define PLUGIN_BRIDGE_NANEPREFIX_SEM_CLIENT    "carla-bridge_sem_rtC_"
+ #else
+ # define PLUGIN_BRIDGE_NAMEPREFIX_AUDIO_POOL    "/crlbrdg_shm_ap_"
+ # define PLUGIN_BRIDGE_NAMEPREFIX_RT_CLIENT     "/crlbrdg_shm_rtC_"
+@@ -189,7 +192,18 @@ bool BridgeRtClientControl::initializeServer() noexcept
+ 
+     CARLA_SAFE_ASSERT(data != nullptr);
+ 
+-    if (! jackbridge_sem_init(&data->sem.server))
++    char semId[6+1];
++    carla_zeroChars(semId, 6+1);
++    std::strncpy(semId, &filename[filename.length()-6] , 6);
++   
++    char semServerId[64];
++    std::sprintf(semServerId, "%s%s", PLUGIN_BRIDGE_NANEPREFIX_SEM_SERVER, semId);
++
++    char semClientId[64];
++    std::sprintf(semClientId, "%s%s", PLUGIN_BRIDGE_NANEPREFIX_SEM_CLIENT, semId);
++
++
++    if (! carla_sem_create_name(*(carla_sem_t *)&sem.server, semServerId))
+     {
+         unmapData();
+         jackbridge_shm_close(shm);
+@@ -197,9 +211,10 @@ bool BridgeRtClientControl::initializeServer() noexcept
+         return false;
+     }
+ 
+-    if (! jackbridge_sem_init(&data->sem.client))
++    
++    if (! carla_sem_create_name(*(carla_sem_t *)&sem.client, semClientId))
+     {
+-        jackbridge_sem_destroy(&data->sem.server);
++        jackbridge_sem_destroy(&sem.server);
+         unmapData();
+         jackbridge_shm_close(shm);
+         jackbridge_shm_init(shm);
+@@ -222,6 +237,15 @@ bool BridgeRtClientControl::attachClient(const char* const basename) noexcept
+ 
+     jackbridge_shm_attach(shm, filename);
+ 
++    char semServerId[64];
++    std::sprintf(semServerId, "%s%s", PLUGIN_BRIDGE_NANEPREFIX_SEM_SERVER, basename);
++
++    char semClientId[64];
++    std::sprintf(semClientId, "%s%s", PLUGIN_BRIDGE_NANEPREFIX_SEM_CLIENT, basename);
++    
++    carla_sem_attach(*(carla_sem_t *)&sem.server, semServerId);
++    carla_sem_attach(*(carla_sem_t *)&sem.client, semClientId);
++
+     return jackbridge_shm_is_valid(shm);
+ }
+ 
+@@ -231,8 +255,8 @@ void BridgeRtClientControl::clear() noexcept
+ 
+     if (needsSemDestroy)
+     {
+-        jackbridge_sem_destroy(&data->sem.client);
+-        jackbridge_sem_destroy(&data->sem.server);
++        jackbridge_sem_destroy(&sem.client);
++        jackbridge_sem_destroy(&sem.server);
+         needsSemDestroy = false;
+     }
+ 
+@@ -263,8 +287,8 @@ bool BridgeRtClientControl::mapData() noexcept
+         CARLA_SAFE_ASSERT(data->midiOut[0] == 0);
+         setRingBuffer(&data->ringBuffer, false);
+ 
+-        CARLA_SAFE_ASSERT_RETURN(jackbridge_sem_connect(&data->sem.server), false);
+-        CARLA_SAFE_ASSERT_RETURN(jackbridge_sem_connect(&data->sem.client), false);
++        CARLA_SAFE_ASSERT_RETURN(jackbridge_sem_connect(&sem.server), false);
++        CARLA_SAFE_ASSERT_RETURN(jackbridge_sem_connect(&sem.client), false);
+     }
+ 
+     return true;
+@@ -288,9 +312,9 @@ bool BridgeRtClientControl::waitForClient(const uint msecs) noexcept
+     CARLA_SAFE_ASSERT_RETURN(data != nullptr, false);
+     CARLA_SAFE_ASSERT_RETURN(isServer, false);
+ 
+-    jackbridge_sem_post(&data->sem.server, true);
++    jackbridge_sem_post(&sem.server, true);
+ 
+-    return jackbridge_sem_timedwait(&data->sem.client, msecs, true);
++    return jackbridge_sem_timedwait(&sem.client, msecs, true);
+ }
+ 
+ bool BridgeRtClientControl::writeOpcode(const PluginBridgeRtClientOpcode opcode) noexcept
+@@ -307,12 +331,13 @@ PluginBridgeRtClientOpcode BridgeRtClientControl::readOpcode() noexcept
+ 
+ BridgeRtClientControl::WaitHelper::WaitHelper(BridgeRtClientControl& c) noexcept
+     : data(c.data),
+-      ok(jackbridge_sem_timedwait(&data->sem.server, 5000, false)) {}
++      sem(c.sem),
++      ok(jackbridge_sem_timedwait(&sem.server, 5000, false)) {}
+ 
+ BridgeRtClientControl::WaitHelper::~WaitHelper() noexcept
+ {
+     if (ok)
+-        jackbridge_sem_post(&data->sem.client, false);
++        jackbridge_sem_post(&sem.client, false);
+ }
+ 
+ // -------------------------------------------------------------------------------------------------------------------
+diff --git a/source/utils/CarlaBridgeUtils.hpp b/source/utils/CarlaBridgeUtils.hpp
+index e8b9f506c..90a88243a 100644
+--- a/source/utils/CarlaBridgeUtils.hpp
++++ b/source/utils/CarlaBridgeUtils.hpp
+@@ -213,7 +213,6 @@ static const std::size_t kBridgeBaseMidiOutHeaderSize   = 6U /* time, port and s
+ 
+ // Server => Client RT
+ struct BridgeRtClientData {
+-    BridgeSemaphore sem;
+     BridgeTimeInfo timeInfo;
+     SmallStackBuffer ringBuffer;
+     uint8_t midiOut[kBridgeRtClientDataMidiOutSize];
+@@ -261,6 +260,7 @@ struct BridgeRtClientControl : public CarlaRingBufferControl<SmallStackBuffer> {
+     bool needsSemDestroy; // client only
+     char shm[64];
+     bool isServer;
++    BridgeSemaphore sem;
+ 
+     BridgeRtClientControl() noexcept;
+     ~BridgeRtClientControl() noexcept override;
+@@ -282,6 +282,7 @@ struct BridgeRtClientControl : public CarlaRingBufferControl<SmallStackBuffer> {
+     // helper class that automatically posts semaphore on destructor
+     struct WaitHelper {
+         BridgeRtClientData* const data;
++	BridgeSemaphore sem;
+         const bool ok;
+ 
+         WaitHelper(BridgeRtClientControl& c) noexcept;
+diff --git a/source/utils/CarlaPluginUI.cpp b/source/utils/CarlaPluginUI.cpp
+index 542ad4b41..41af2bfb4 100644
+--- a/source/utils/CarlaPluginUI.cpp
++++ b/source/utils/CarlaPluginUI.cpp
+@@ -752,16 +752,14 @@ public:
+ 
+ #ifdef BUILDING_CARLA_FOR_WINDOWS
+         const uint winType = WS_EX_TOOLWINDOW;
+-        const HWND parent  = (HWND)parentId;
+ #else
+         const uint winType = WS_EX_DLGMODALFRAME;
+-        const HWND parent  = nullptr;
+ #endif
+ 
+         fWindow = CreateWindowEx(winType,
+                                  classNameBuf, "Carla Plugin UI", winFlags,
+                                  CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+-                                 parent, nullptr,
++                                 NULL, nullptr,
+                                  hInstance, nullptr);
+ 
+         if (fWindow == nullptr) {
+diff --git a/source/utils/CarlaSemUtils.hpp b/source/utils/CarlaSemUtils.hpp
+index 755265f80..7bda05c0b 100644
+--- a/source/utils/CarlaSemUtils.hpp
++++ b/source/utils/CarlaSemUtils.hpp
+@@ -113,6 +113,30 @@ carla_sem_t* carla_sem_create(const bool externalIPC) noexcept
+     return nullptr;
+ }
+ 
++static inline
++bool carla_sem_create_name(carla_sem_t& sem, const char* const fileBase)
++{
++    carla_zeroStruct(sem);
++
++    SECURITY_ATTRIBUTES sa;
++    carla_zeroStruct(sa);
++    sa.nLength        = sizeof(SECURITY_ATTRIBUTES);
++    sa.bInheritHandle = TRUE;
++
++    sem.handle = ::CreateSemaphoreA(&sa, 0, 1, fileBase);
++
++    return (sem.handle != INVALID_HANDLE_VALUE);
++}
++
++static inline
++bool carla_sem_attach(carla_sem_t& sem, const char* const fileBase)
++{
++    carla_zeroStruct(sem);
++    sem.handle = ::OpenSemaphoreA(SEMAPHORE_ALL_ACCESS, TRUE, fileBase);
++
++    return (sem.handle != INVALID_HANDLE_VALUE);
++}
++
+ /*
+  * Destroy a semaphore, pre-allocated version.
+  */
+diff --git a/source/utils/CarlaShmUtils.hpp b/source/utils/CarlaShmUtils.hpp
+index bc58e70f5..9a36189f3 100644
+--- a/source/utils/CarlaShmUtils.hpp
++++ b/source/utils/CarlaShmUtils.hpp
+@@ -21,8 +21,54 @@
+ #include "CarlaUtils.hpp"
+ 
+ #ifdef CARLA_OS_WIN
+-struct carla_shm_t { HANDLE map; bool isServer; const char* filename; };
+-# define carla_shm_t_INIT { INVALID_HANDLE_VALUE, true, nullptr }
++struct carla_shm_t { HANDLE file; HANDLE map; bool isServer; const char* filename; };
++# define carla_shm_t_INIT { INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, true, nullptr }
++
++static inline
++HANDLE carla_shm_file_create(const bool isServer, const char* const fileBase)
++{
++    char tempdir[MAX_PATH];
++    char fullpath[MAX_PATH];
++
++    ::GetTempPath(MAX_PATH, tempdir);
++
++    sprintf(fullpath, "%s%s", tempdir, fileBase);
++
++    HANDLE hFile;
++
++
++    if (isServer)
++    {
++        hFile = ::CreateFileA(
++                        fullpath,
++                        GENERIC_READ|GENERIC_WRITE,
++                        FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
++                       	NULL,
++                        CREATE_NEW,
++                        FILE_ATTRIBUTE_TEMPORARY|FILE_FLAG_DELETE_ON_CLOSE|FILE_FLAG_OVERLAPPED|SECURITY_ANONYMOUS,
++			NULL);
++    }
++    else
++    { 
++        hFile = ::CreateFileA(
++                        fullpath,
++                        GENERIC_READ|GENERIC_WRITE,
++                        FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
++                        NULL,
++                        OPEN_EXISTING,
++                        FILE_ATTRIBUTE_TEMPORARY|FILE_FLAG_OVERLAPPED|SECURITY_ANONYMOUS,
++			NULL);
++    }
++
++
++    if (hFile == INVALID_HANDLE_VALUE) {
++    	const DWORD errorCode = ::GetLastError();
++	carla_stderr2("CreateFileA failed for '%s', isServer:%i, errorCode:%x",
++			                            fileBase, isServer, errorCode);
++    } 
++
++    return hFile;
++}	
+ #else
+ # ifndef __WINE__
+ #  include <cerrno>
+@@ -78,6 +124,7 @@ carla_shm_t carla_shm_create(const char* const filename) noexcept
+     carla_shm_t ret;
+ 
+ #ifdef CARLA_OS_WIN
++    ret.file     = carla_shm_file_create(true, filename);
+     ret.map      = INVALID_HANDLE_VALUE;
+     ret.isServer = true;
+     ret.filename = carla_strdup_safe(filename);
+@@ -110,6 +157,7 @@ carla_shm_t carla_shm_attach(const char* const filename) noexcept
+     carla_shm_t ret;
+ 
+ #ifdef CARLA_OS_WIN
++    ret.file     = carla_shm_file_create(false, filename);
+     ret.map      = INVALID_HANDLE_VALUE;
+     ret.isServer = false;
+     ret.filename = carla_strdup_safe(filename);
+@@ -133,6 +181,7 @@ void carla_shm_close(carla_shm_t& shm) noexcept
+     CARLA_SAFE_ASSERT_RETURN(carla_is_shm_valid(shm),);
+ #ifdef CARLA_OS_WIN
+     CARLA_SAFE_ASSERT(shm.map == INVALID_HANDLE_VALUE);
++    CARLA_SAFE_ASSERT(shm.file == INVALID_HANDLE_VALUE);
+ #endif
+ 
+ #ifdef CARLA_OS_WIN
+@@ -164,40 +213,33 @@ void* carla_shm_map(carla_shm_t& shm, const std::size_t size) noexcept
+     CARLA_SAFE_ASSERT_RETURN(size > 0, nullptr);
+ #ifdef CARLA_OS_WIN
+     CARLA_SAFE_ASSERT_RETURN(shm.map == INVALID_HANDLE_VALUE, nullptr);
++    CARLA_SAFE_ASSERT_RETURN(shm.file != INVALID_HANDLE_VALUE, nullptr);
+ #else
+     CARLA_SAFE_ASSERT_RETURN(shm.size == 0, nullptr);
+ #endif
+ 
+     try {
+ #ifdef CARLA_OS_WIN
+-        HANDLE map;
+-
+-        if (shm.isServer)
++        SECURITY_ATTRIBUTES sa;
++        carla_zeroStruct(sa);
++        sa.nLength = sizeof(sa);
++        sa.bInheritHandle = TRUE;
++	
++        HANDLE map; 
++        map = ::CreateFileMappingA(shm.file, &sa, PAGE_READWRITE|SEC_COMMIT, 0, size, NULL);
++
++        CARLA_SAFE_ASSERT_RETURN(map != nullptr, nullptr);
++        CARLA_SAFE_ASSERT_RETURN(map != INVALID_HANDLE_VALUE, nullptr);
++
++        if (map == nullptr || map == INVALID_HANDLE_VALUE)
+         {
+-            SECURITY_ATTRIBUTES sa;
+-            carla_zeroStruct(sa);
+-            sa.nLength = sizeof(sa);
+-            sa.bInheritHandle = TRUE;
+-
+-            map = ::CreateFileMappingA(INVALID_HANDLE_VALUE, &sa, PAGE_READWRITE|SEC_COMMIT, 0, size, shm.filename);
+-
+-            if (map == nullptr || map == INVALID_HANDLE_VALUE)
+-            {
+-                const DWORD errorCode = ::GetLastError();
+-                carla_stderr2("CreateFileMapping failed for '%s', size:%lu, isServer:%i, errorCode:%x",
+-                              shm.filename, size, shm.isServer, errorCode);
+-                return nullptr;
+-            }
+-        }
+-        else
+-        {
+-            map = ::OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, shm.filename);
+-
+-            CARLA_SAFE_ASSERT_RETURN(map != nullptr, nullptr);
+-            CARLA_SAFE_ASSERT_RETURN(map != INVALID_HANDLE_VALUE, nullptr);
++            const DWORD errorCode = ::GetLastError();
++            carla_stderr2("CreateFileMapping failed for '%s', size:%lu, isServer:%i, errorCode:%x",
++                          shm.filename, size, shm.isServer, errorCode);
++            return nullptr;
+         }
+ 
+-        void* const ptr = ::MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, size);
++	void* const ptr = ::MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, size);
+ 
+         if (ptr == nullptr)
+         {
+@@ -209,6 +251,7 @@ void* carla_shm_map(carla_shm_t& shm, const std::size_t size) noexcept
+         }
+ 
+         shm.map = map;
++
+         return ptr;
+ #else
+         if (shm.filename != nullptr)
+@@ -242,17 +285,22 @@ void carla_shm_unmap(carla_shm_t& shm, void* const ptr) noexcept
+     CARLA_SAFE_ASSERT_RETURN(ptr != nullptr,);
+ #ifdef CARLA_OS_WIN
+     CARLA_SAFE_ASSERT_RETURN(shm.map != INVALID_HANDLE_VALUE,);
++    CARLA_SAFE_ASSERT_RETURN(shm.file != INVALID_HANDLE_VALUE,);
+ #else
+     CARLA_SAFE_ASSERT_RETURN(shm.size > 0,);
+ #endif
+ 
+     try {
+ #ifdef CARLA_OS_WIN
++	const HANDLE file(shm.file);
+         const HANDLE map(shm.map);
++
+         shm.map = INVALID_HANDLE_VALUE;
++        shm.file = INVALID_HANDLE_VALUE;
+ 
+         ::UnmapViewOfFile(ptr);
+         ::CloseHandle(map);
++	::CloseHandle(file);
+ #else
+         const std::size_t size(shm.size);
+         shm.size = 0;
+@@ -295,45 +343,20 @@ carla_shm_t carla_shm_create_temp(char* const fileBase) noexcept
+         for (std::size_t c = fileBaseLen - 6; c < fileBaseLen; ++c)
+             fileBase[c] = charSet[std::rand() % charSetLen];
+ 
+-#ifdef CARLA_OS_WIN
+-        // Windows: check if file already exists
+-        const HANDLE h = ::CreateFileMapping(INVALID_HANDLE_VALUE, nullptr,
+-                                             PAGE_READWRITE|SEC_COMMIT, 0, 8, fileBase);
+-
+-        if (h == INVALID_HANDLE_VALUE)
+-        {
+-            carla_stderr("carla_shm_create_temp(%s) - file mapping test error", fileBase);
+-            return gNullCarlaShm;
+-        }
+-
++        // (try to) create new shm for this filename
++        const carla_shm_t shm = carla_shm_create(fileBase);
+         const DWORD error = ::GetLastError();
+-        ::CloseHandle(h);
+ 
+         if (error == ERROR_ALREADY_EXISTS)
+         {
+             carla_stderr("carla_shm_create_temp(%s) - file exists, retrying", fileBase);
+             continue;
+         }
+-#endif
+-
+-        // (try to) create new shm for this filename
+-        const carla_shm_t shm = carla_shm_create(fileBase);
+ 
+         // all ok!
+         if (carla_is_shm_valid(shm))
+             return shm;
+ 
+-#ifndef CARLA_OS_WIN
+-        // Non-Windows: if file already exists, keep trying
+-        if (errno == EEXIST)
+-        {
+-            carla_stderr("carla_shm_create_temp(%s) - file exists, retrying", fileBase);
+-            continue;
+-        }
+-        const int localerrno = errno;
+-        carla_stderr("carla_shm_create_temp(%s) - failed, error code %i", fileBase, localerrno);
+-#endif
+-
+         // some unknown error occurred, return null
+         return gNullCarlaShm;
+     }

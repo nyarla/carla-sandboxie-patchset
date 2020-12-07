@@ -1,6 +1,6 @@
 # carla-sandboxie-patchset
 
-- The experimantal patchset for Carla VST Host on Windows with Sandboxied VST Plugins
+- The experimantal patchset for Carla VST Host on Windows with supports Sandboxied VST Plugins
 
 ## DESCRIPTION
 
@@ -40,7 +40,7 @@ about this restrictions see below:
 
 - setenv `CARLA_SANDBOXIE_PREFIX` and `CARLA_SANDBOXIE_START` is required.
   - `CARLA_SANDBOXIE_PREFIX` is same as root directory of Sandboxie's sandboxes
-    - this value is able to get from Sandboxie-plus`s `Sandbox file system root`
+    - this value is able to get from Sandboxie-plus's `Sandbox file system root`
     - and notes, this value must not include `%SANDBOX%` placeholder
   - `CARLA_SANDBOXIE_START` is path to `Start.exe` about Sandboxie's command.
 - set configuration about always use plugin bridge on carla

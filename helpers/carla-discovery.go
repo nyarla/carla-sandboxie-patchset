@@ -1,12 +1,15 @@
 package main
 
 import (
+	"debug/pe"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -41,6 +44,23 @@ func executable(src string) string {
 	return normalizePath(filepath.Join(filepath.Dir(src), fmt.Sprintf(`_%s`, filepath.Base(src))))
 }
 
+func checkArch(is64bit bool, fp string) bool {
+	file, err := pe.Open(fp)
+	if err != nil {
+		return false
+	}
+
+	if is64bit {
+		return file.FileHeader.Machine == pe.IMAGE_FILE_MACHINE_AMD64
+	} else {
+		return file.FileHeader.Machine == pe.IMAGE_FILE_MACHINE_I386
+	}
+}
+
+func discoveryOutPath(src string) string {
+	return strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9_]`).ReplaceAllString(src, `_`))
+}
+
 func init() {
 	sandboxiePrefix = normalizePath(os.Getenv(`CARLA_SANDBOXIE_PREFIX`))
 	sandboxieStart = normalizePath(os.Getenv(`CARLA_SANDBOXIE_START`))
@@ -51,9 +71,12 @@ func init() {
 }
 
 func main() {
-	var cmd *exec.Cmd
+	if !checkArch(strings.HasSuffix(os.Args[0], `64.exe`), os.Args[2]) {
+		os.Exit(1)
+	}
 
-	inSandbox = strings.HasPrefix(os.Args[2], sandboxiePrefix)
+	var cmd *exec.Cmd
+	inSandbox = strings.HasPrefix(normalizePath(os.Args[2]), normalizePath(sandboxiePrefix))
 
 	if isSandboxSupported && inSandbox {
 		box, fakePath := getSandboxieContainerInfo(os.Args[2])
@@ -61,7 +84,7 @@ func main() {
 		os.Args[0] = executable(os.Args[0])
 		os.Args[2] = fakePath
 
-		commandLine := []string{sandboxieStart, fmt.Sprintf(`/box:%s`, box), `/wait`}
+		commandLine := []string{sandboxieStart, fmt.Sprintf(`/box:%s`, box), `/silent`, `/nosbiectrl`}
 		commandLine = append(commandLine, os.Args[0:]...)
 		cmd = exec.Command(commandLine[0], commandLine[1:]...)
 	} else {
@@ -78,15 +101,21 @@ func main() {
 	}
 
 	cmd.Wait()
-
-	fp := fmt.Sprintf("%s/carla-discovery.out", os.Getenv(`TEMP`))
+	fp := fmt.Sprintf("%s/carla-discovery_%s", os.Getenv(`TEMP`), discoveryOutPath(os.Args[2]))
 	defer os.Remove(fp)
+
+	for count := 0; count < 5; count++ {
+		if _, err := os.Stat(fp); err == nil {
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+	}
 
 	if out, err := ioutil.ReadFile(fp); err == nil {
 		os.Stdout.Write(out)
 	} else {
-		fmt.Fprint(os.Stderr, "%s\n", err)
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 	}
 
 	os.Exit(0)

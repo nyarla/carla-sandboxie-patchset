@@ -1,5 +1,5 @@
 diff --git a/source/discovery/carla-discovery.cpp b/source/discovery/carla-discovery.cpp
-index d45e6a12a..ca98e66ba 100644
+index d45e6a12a..1684c1ed4 100644
 --- a/source/discovery/carla-discovery.cpp
 +++ b/source/discovery/carla-discovery.cpp
 @@ -68,6 +68,8 @@
@@ -11,15 +11,18 @@ index d45e6a12a..ca98e66ba 100644
  #endif
  
  #ifdef HAVE_FLUIDSYNTH
-@@ -1652,6 +1654,12 @@ int main(int argc, char* argv[])
+@@ -1652,6 +1654,15 @@ int main(int argc, char* argv[])
          return 1;
      }
  
-+    const char* tempdir = std::getenv("TEMP");
-+    char tempFile[MAX_PATH];
-+    sprintf(tempFile, "%s/carla-discovery.out", tempdir);
-+    std::ofstream out(tempFile);
-+    std::cout.rdbuf(out.rdbuf());
++
++    CarlaString out(argv[2]);
++    
++    char outPath[MAX_PATH];
++    sprintf(outPath, "%s/carla-discovery_%s", getenv("TEMP"), out.toBasic().toLower().buffer());
++    
++    std::ofstream buf(outPath);
++    std::cout.rdbuf(buf.rdbuf());
 +
      const char* const stype    = argv[1];
      const char* const filename = argv[2];

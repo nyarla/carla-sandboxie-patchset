@@ -2,71 +2,91 @@
 
 - The experimantal patchset for Carla VST Host on Windows with Sandboxied VST Plugins
 
-## So, What?
+## DESCRIPTION
 
-This patchset is enable to experimental build on Ubuntu 20.04 about Carla,
-and add features to load VST plugins from Sandboxie's sandboxed containers.
+This patchset is enable to build for experimantal windows on Ubuntu 20.04 about Carla,
+and add feature of sandboxie-plus supports about load VST plugins can loading from sandboxed containers.
 
-## Building Carla VST Host with this patchset
+## BUILD
 
 ### Requirements
 
-- bash
 - docker
-- golang with build binary supports for windows
+- bash
+- golang (with supports for build windows binary)
 - make
-- linux environment
 
-NOTE: I tested build about this repository is inside NixOS on WSL2.
+NOTE: Build of this patchset is tested on linux environment with mingw cross compile.
 
-### How to Build
+### How to build
 
-Clone to this repository, and just run:
+`git clone` from this repository, enter to repository dir, and just run:
 
 ```bash
 $ make
 ```
 
-And custom built binary is getting from `dist` directory
+built artifacts can getting from `dist/` directory on repository dir.
 
-## How to use
+## USE
 
-Just add plugin directory and rescan on Carla VST Host,
-it supports both Sandboxied directory and Non-Sandboxied directory.
+### How to use
 
-### Restrictions of use to this custom built
+Copy carla application from `dist/` dir, and put on Windows machine,
+so you're able to use it as nomarlly carla.
 
-#### You must set `CARLA_SANDBOXIE_PREFIX` and `CARLA_SANDBOXIE_START`
+However, sandboxie supports on patched carla has some restrictions,
+about this restrictions see below:
 
-These environment variable is required by working for this custom built:
+- setenv `CARLA_SANDBOXIE_PREFIX` and `CARLA_SANDBOXIE_START` is required.
+  - `CARLA_SANDBOXIE_PREFIX` is same as root directory of Sandboxie's sandboxes
+    - this value is able to get from Sandboxie-plus`s `Sandbox file system root`
+    - and notes, this value must not include `%SANDBOX%` placeholder
+  - `CARLA_SANDBOXIE_START` is path to `Start.exe` about Sandboxie's command.
+- set configuration about always use plugin bridge on carla
+  - this features can enable on experimantal features in carla configuration
+  - checked `Enable experimantal features` in `Main` section on carla config
+  - and checked`Enable plugin bridges` in `Exprimental` section too.
 
-- `CARLA_SANDBOXIE_PREFIX` is your _Sandbox file system root_ on Sandboxie without `%SANDBOX%` param.
-- `CARLA_SANDBOXIE_START` is path to Sandboxie's `Start.exe`
+And, you must include this configuration in Sandboxie's container config:
 
-#### You must always enable to plugin bridge
+```ini
+OpenPipePath=%temp%\*
+OpenIpcPath=\Sessions\*\BaseNamedObjects\carla-bridge_sem_*
+```
 
-This patchset modify to proces of plugin bridge on Carla,
-and other cases about load VST plugins is just not working, or broken (?)
+in additional, you want VST container is persistents, you should add this configuration:
 
-How to configure:
+```ini
+NeverDelete=y
+AutoDelete=n
+```
 
-- In `Main` section, enable to _Enable experimantal features_
-- In `Exprimental` section, enable to and _Enable plugin bridges_ and _Run plugins in bridge when possible_
+### How to add VST plugins from Sandboxie's containers
 
-#### Some configuration required on Sandboxie containers
+You're able to add VST directory as normally VST plugins dir.
 
-- In `General Option`, `Sandbox Indicator in title` is _Don't alter the window title_
-- In `Resource Access`, these configurattions required:
-  - `OpenFilePath=%temp%\*`
-  - `OpenIpcPath=\Sessions\*\BaseNamedObjects\carla-bridge_sem_*`
+For example, Your sandbox directory is `P:\sandbox\VST`,
+and your VST directory is `P:\sandbox\VST\drive\C\VST2`,
+you just add `P:\sandbox\VST\drive\C\VST2` directory to VST2 directory configuration,
+and rescan plugins on carla.
 
-## Known Problems
+So you added this configuration and rescan plugins on carla,
+patched carla is auto-detected Sandboxie's sandbox containers,
+and patched carla uses Sandboxie's `Start.exe` command when launch plugin discovery and load plugins.
 
-When `_carla-discovery-win{32,64}.exe` cannot load VST plugin by differenct architecture inside Sandboxie's container,
+More information, when you added non-sandboxed VST directory,
+patched carla does not use `Start.exe` command.
 
-Sandboxie throws notification of `SBIE2224` error too many.
+## KNOWN PROBLREMS
 
-## Licenses
+- real `_carla-discovery-win{32,64}.exe` is crash some(?) plugins
+  - this problem is spamming `SBIE2224` error to windows nortification
+  - workaround is disable nortification by global settings on sandboxie-plus
+- when try to display VST GUI from carla rack UI, VST GUI not shown at first time
+  - workaround is retry to display VST GUI twice
+
+## LICENSE
 
 These patches are under the [GPL v2, or later](https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt):
 
@@ -83,17 +103,16 @@ This patch is under the [Python Software Foundation License](https://docs.python
 
 Other script or files are under the MIT-licensed.
 
-# Author
+## AUTHOR
 
 OKAMURA Naoki a.k.a. nyarla <nyarla@kalaclista.com>
 
-# Tested Environment
+## TESTED ENVIRONEMT
 
-- build on NixOS on WSL2
-- Based version of Carla VST Host is [v2.2.0](https://github.com/falkTX/Carla/releases/tag/v2.2.0)
-- Sandboxie version is [Release v0.4.3 / 5.43.7](https://github.com/sandboxie-plus/Sandboxie/releases/tag/v0.4.3)
+- cross-compile by mingw is test on docker in NixOS on WSL2
+- based carla version is [v2.2.0](https://github.com/falkTX/Carla/releases/tag/v2.2.0)
+- Sandboxie version is [Release v0.4.5 / 5.44.1](https://github.com/sandboxie-plus/Sandboxie/releases/tag/v0.4.5)
 
 # NOTES
 
-- GPLv2-ed patchs includes original Carla source code
 - cx_Freeze patch is based on [this pull request](https://github.com/marcelotduarte/cx_Freeze/pull/545)

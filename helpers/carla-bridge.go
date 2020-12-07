@@ -52,7 +52,7 @@ func main() {
 		os.Args[0] = executable(os.Args[0])
 		os.Args[2] = fakePath
 
-		commandLine := []string{sandboxieStart, fmt.Sprintf(`/box:%s`, box), `/wait`}
+		commandLine := []string{sandboxieStart, fmt.Sprintf(`/box:%s`, box), `/wait`, `/silent`, `/nosbiectrl`}
 		commandLine = append(commandLine, os.Args[0:]...)
 
 		cmd = exec.Command(commandLine[0], commandLine[1:]...)

@@ -1,5 +1,5 @@
 diff --git a/source/utils/CarlaBridgeUtils.cpp b/source/utils/CarlaBridgeUtils.cpp
-index 84b756c06..7df275b97 100644
+index 64abffb96..7de396c38 100644
 --- a/source/utils/CarlaBridgeUtils.cpp
 +++ b/source/utils/CarlaBridgeUtils.cpp
 @@ -17,15 +17,18 @@
@@ -11,7 +11,7 @@ index 84b756c06..7df275b97 100644
  // must be last
  #include "jackbridge/JackBridge.hpp"
  
- #if defined(CARLA_OS_WIN) && defined(BUILDING_CARLA_FOR_WINDOWS)
+ #if defined(CARLA_OS_WIN) && !defined(BUILDING_CARLA_FOR_WINE)
 -# define PLUGIN_BRIDGE_NAMEPREFIX_AUDIO_POOL    "Local\\carla-bridge_shm_ap_"
 -# define PLUGIN_BRIDGE_NAMEPREFIX_RT_CLIENT     "Local\\carla-bridge_shm_rtC_"
 -# define PLUGIN_BRIDGE_NAMEPREFIX_NON_RT_CLIENT "Local\\carla-bridge_shm_nonrtC_"
@@ -153,17 +153,17 @@ index e8b9f506c..90a88243a 100644
  
          WaitHelper(BridgeRtClientControl& c) noexcept;
 diff --git a/source/utils/CarlaPluginUI.cpp b/source/utils/CarlaPluginUI.cpp
-index 542ad4b41..41af2bfb4 100644
+index 919dec494..3abdbd947 100644
 --- a/source/utils/CarlaPluginUI.cpp
 +++ b/source/utils/CarlaPluginUI.cpp
 @@ -752,16 +752,14 @@ public:
  
- #ifdef BUILDING_CARLA_FOR_WINDOWS
-         const uint winType = WS_EX_TOOLWINDOW;
--        const HWND parent  = (HWND)parentId;
- #else
+ #ifdef BUILDING_CARLA_FOR_WINE
          const uint winType = WS_EX_DLGMODALFRAME;
 -        const HWND parent  = nullptr;
+ #else
+         const uint winType = WS_EX_TOOLWINDOW;
+-        const HWND parent  = (HWND)parentId;
  #endif
  
          fWindow = CreateWindowEx(winType,
@@ -210,7 +210,7 @@ index 755265f80..7bda05c0b 100644
   * Destroy a semaphore, pre-allocated version.
   */
 diff --git a/source/utils/CarlaShmUtils.hpp b/source/utils/CarlaShmUtils.hpp
-index bc58e70f5..9a36189f3 100644
+index 55792112b..88536c384 100644
 --- a/source/utils/CarlaShmUtils.hpp
 +++ b/source/utils/CarlaShmUtils.hpp
 @@ -21,8 +21,54 @@
@@ -286,15 +286,7 @@ index bc58e70f5..9a36189f3 100644
      ret.map      = INVALID_HANDLE_VALUE;
      ret.isServer = false;
      ret.filename = carla_strdup_safe(filename);
-@@ -133,6 +181,7 @@ void carla_shm_close(carla_shm_t& shm) noexcept
-     CARLA_SAFE_ASSERT_RETURN(carla_is_shm_valid(shm),);
- #ifdef CARLA_OS_WIN
-     CARLA_SAFE_ASSERT(shm.map == INVALID_HANDLE_VALUE);
-+    CARLA_SAFE_ASSERT(shm.file == INVALID_HANDLE_VALUE);
- #endif
- 
- #ifdef CARLA_OS_WIN
-@@ -164,40 +213,33 @@ void* carla_shm_map(carla_shm_t& shm, const std::size_t size) noexcept
+@@ -166,40 +214,33 @@ void* carla_shm_map(carla_shm_t& shm, const std::size_t size) noexcept
      CARLA_SAFE_ASSERT_RETURN(size > 0, nullptr);
  #ifdef CARLA_OS_WIN
      CARLA_SAFE_ASSERT_RETURN(shm.map == INVALID_HANDLE_VALUE, nullptr);
@@ -353,7 +345,7 @@ index bc58e70f5..9a36189f3 100644
  
          if (ptr == nullptr)
          {
-@@ -209,6 +251,7 @@ void* carla_shm_map(carla_shm_t& shm, const std::size_t size) noexcept
+@@ -211,6 +252,7 @@ void* carla_shm_map(carla_shm_t& shm, const std::size_t size) noexcept
          }
  
          shm.map = map;
@@ -361,7 +353,7 @@ index bc58e70f5..9a36189f3 100644
          return ptr;
  #else
          if (shm.filename != nullptr)
-@@ -242,17 +285,22 @@ void carla_shm_unmap(carla_shm_t& shm, void* const ptr) noexcept
+@@ -244,17 +286,22 @@ void carla_shm_unmap(carla_shm_t& shm, void* const ptr) noexcept
      CARLA_SAFE_ASSERT_RETURN(ptr != nullptr,);
  #ifdef CARLA_OS_WIN
      CARLA_SAFE_ASSERT_RETURN(shm.map != INVALID_HANDLE_VALUE,);
@@ -372,19 +364,19 @@ index bc58e70f5..9a36189f3 100644
  
      try {
  #ifdef CARLA_OS_WIN
-+	const HANDLE file(shm.file);
-         const HANDLE map(shm.map);
++        const HANDLE file(shm.file);
+         const HANDLE map = shm.map;
 +
          shm.map = INVALID_HANDLE_VALUE;
 +        shm.file = INVALID_HANDLE_VALUE;
  
          ::UnmapViewOfFile(ptr);
          ::CloseHandle(map);
-+	::CloseHandle(file);
++        ::CloseHandle(file);
  #else
          const std::size_t size(shm.size);
          shm.size = 0;
-@@ -295,45 +343,20 @@ carla_shm_t carla_shm_create_temp(char* const fileBase) noexcept
+@@ -297,45 +344,20 @@ carla_shm_t carla_shm_create_temp(char* const fileBase) noexcept
          for (std::size_t c = fileBaseLen - 6; c < fileBaseLen; ++c)
              fileBase[c] = charSet[std::rand() % charSetLen];
  

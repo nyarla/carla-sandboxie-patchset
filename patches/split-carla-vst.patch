@@ -1,0 +1,38 @@
+diff --git a/Makefile.dist.mk b/Makefile.dist.mk
+index 4cac58093..bb1f3fe77 100644
+--- a/Makefile.dist.mk
++++ b/Makefile.dist.mk
+@@ -134,6 +134,13 @@ _CARLA_VST2SYN_PLUGIN_FILES = \
+ 	$(_THEME_FILES:%=carla.vst/Contents/MacOS/resources/%)
+ else ifeq ($(WIN32),true)
+ _CARLA_VST2_PLUGIN_FILES = \
++	carla.vst/CarlaRack.dll \
++	carla.vst/CarlaRackFX.dll \
++	carla.vst/CarlaPatchbay.dll \
++	carla.vst/CarlaPatchbay16.dll \
++	carla.vst/CarlaPatchbay32.dll \
++	carla.vst/CarlaPatchbay64.dll \
++	carla.vst/CarlaPatchbayFX.dll \
+ 	carla.vst/CarlaVstShell.dll \
+ 	carla.vst/CarlaVstFxShell.dll \
+ 	carla.vst/resources/lib/library.zip \
+diff --git a/source/plugin/Makefile b/source/plugin/Makefile
+index 2ec4eb305..28e27b11c 100644
+--- a/source/plugin/Makefile
++++ b/source/plugin/Makefile
+@@ -187,7 +187,6 @@ TARGETS += \
+ endif
+ 
+ ifneq ($(HAIKU),true)
+-ifeq ($(HAVE_DGL),true)
+ ifeq ($(HAVE_PYQT),true)
+ TARGETS += \
+ 	$(BINDIR)/CarlaRack$(LIB_EXT) \
+@@ -201,7 +200,6 @@ TARGETS += \
+ 	$(BINDIR)/CarlaVstFxShell$(LIB_EXT)
+ endif
+ endif
+-endif
+ 
+ # ---------------------------------------------------------------------------------------------------------------------
+ 

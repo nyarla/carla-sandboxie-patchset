@@ -1,8 +1,8 @@
 diff --git a/source/discovery/carla-discovery.cpp b/source/discovery/carla-discovery.cpp
-index d45e6a12a..1684c1ed4 100644
+index 1be334e45..b496de35a 100644
 --- a/source/discovery/carla-discovery.cpp
 +++ b/source/discovery/carla-discovery.cpp
-@@ -68,6 +68,8 @@
+@@ -69,6 +69,8 @@
  #ifdef CARLA_OS_WIN
  # include <pthread.h>
  # include <objbase.h>
@@ -11,19 +11,41 @@ index d45e6a12a..1684c1ed4 100644
  #endif
  
  #ifdef HAVE_FLUIDSYNTH
-@@ -1652,6 +1654,15 @@ int main(int argc, char* argv[])
-         return 1;
-     }
+@@ -1668,6 +1670,21 @@ int main(int argc, char* argv[])
+     CarlaString filenameCheck(filename);
+     filenameCheck.toLower();
  
++    CarlaString pluginPath(filename);
++    CarlaString discoveryPath(argv[0]);
 +
-+    CarlaString out(argv[2]);
-+    
++#ifdef CARLA_OS_WIN64
++    CarlaString discoveryBit("64");
++#else
++    CarlaString discoveryBit("32");
++#endif
++  
 +    char outPath[MAX_PATH];
-+    sprintf(outPath, "%s/carla-discovery_%s", getenv("TEMP"), out.toBasic().toLower().buffer());
-+    
++    sprintf(outPath, "%s\\carla-discovery_%s_%s", getenv("TEMP"), discoveryBit.buffer(), pluginPath.toBasic().buffer());
++
 +    std::ofstream buf(outPath);
 +    std::cout.rdbuf(buf.rdbuf());
 +
-     const char* const stype    = argv[1];
-     const char* const filename = argv[2];
-     const PluginType  type     = getPluginTypeFromString(stype);
+     bool openLib = false;
+     lib_t handle = nullptr;
+ 
+@@ -1856,6 +1873,7 @@ int main(int argc, char* argv[])
+     if (openLib && handle != nullptr)
+         lib_close(handle);
+ 
++
+     // ---------------------------------------------------------------------------------------------------------------
+ 
+ #ifdef CARLA_OS_WIN
+@@ -1867,6 +1885,7 @@ int main(int argc, char* argv[])
+     OleUninitialize();
+ #endif
+ 
++    buf.close();
+     return 0;
+ 
+ #ifdef USING_JUCE

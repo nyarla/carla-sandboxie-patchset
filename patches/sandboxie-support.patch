@@ -210,10 +210,10 @@ index 755265f80..7bda05c0b 100644
   * Destroy a semaphore, pre-allocated version.
   */
 diff --git a/source/utils/CarlaShmUtils.hpp b/source/utils/CarlaShmUtils.hpp
-index 55792112b..88536c384 100644
+index 55792112b..11e869d1b 100644
 --- a/source/utils/CarlaShmUtils.hpp
 +++ b/source/utils/CarlaShmUtils.hpp
-@@ -21,8 +21,54 @@
+@@ -21,8 +21,38 @@
  #include "CarlaUtils.hpp"
  
  #ifdef CARLA_OS_WIN
@@ -225,52 +225,36 @@ index 55792112b..88536c384 100644
 +static inline
 +HANDLE carla_shm_file_create(const bool isServer, const char* const fileBase)
 +{
-+    char tempdir[MAX_PATH];
-+    char fullpath[MAX_PATH];
++    char tempDirBase[MAX_PATH];
++    char fullPath[MAX_PATH];
 +
-+    ::GetTempPath(MAX_PATH, tempdir);
++    ::GetTempPath(MAX_PATH, tempDirBase);
 +
-+    sprintf(fullpath, "%s%s", tempdir, fileBase);
++    sprintf(fullPath, "%s%s", tempDirBase, fileBase);
 +
-+    HANDLE hFile;
-+
-+
-+    if (isServer)
-+    {
-+        hFile = ::CreateFileA(
-+                        fullpath,
-+                        GENERIC_READ|GENERIC_WRITE,
-+                        FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-+                       	NULL,
-+                        CREATE_NEW,
-+                        FILE_ATTRIBUTE_TEMPORARY|FILE_FLAG_DELETE_ON_CLOSE|FILE_FLAG_OVERLAPPED|SECURITY_ANONYMOUS,
-+			NULL);
-+    }
-+    else
-+    { 
-+        hFile = ::CreateFileA(
-+                        fullpath,
-+                        GENERIC_READ|GENERIC_WRITE,
-+                        FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-+                        NULL,
-+                        OPEN_EXISTING,
-+                        FILE_ATTRIBUTE_TEMPORARY|FILE_FLAG_OVERLAPPED|SECURITY_ANONYMOUS,
-+			NULL);
-+    }
-+
++    HANDLE hFile = ::CreateFileA(fullPath,
++                                 GENERIC_READ|GENERIC_WRITE,
++                                 FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
++                                 NULL,
++                                 ( (isServer) ? CREATE_NEW : OPEN_EXISTING ),
++                                 ( (isServer)
++                                    ? FILE_ATTRIBUTE_TEMPORARY|FILE_FLAG_DELETE_ON_CLOSE|FILE_FLAG_OVERLAPPED|SECURITY_ANONYMOUS
++                                    : FILE_ATTRIBUTE_TEMPORARY|FILE_FLAG_OVERLAPPED|SECURITY_ANONYMOUS ),
++                                 NULL);
 +
 +    if (hFile == INVALID_HANDLE_VALUE) {
 +    	const DWORD errorCode = ::GetLastError();
-+	carla_stderr2("CreateFileA failed for '%s', isServer:%i, errorCode:%x",
-+			                            fileBase, isServer, errorCode);
-+    } 
++    	carla_stderr2("CreateFileA failed for '%s', isServer:%i, errorCode:%x",
++			                fileBase, isServer, errorCode);
++      return nullptr;
++    }
 +
 +    return hFile;
 +}	
  #else
  # ifndef __WINE__
  #  include <cerrno>
-@@ -78,6 +124,7 @@ carla_shm_t carla_shm_create(const char* const filename) noexcept
+@@ -78,6 +108,7 @@ carla_shm_t carla_shm_create(const char* const filename) noexcept
      carla_shm_t ret;
  
  #ifdef CARLA_OS_WIN
@@ -278,7 +262,7 @@ index 55792112b..88536c384 100644
      ret.map      = INVALID_HANDLE_VALUE;
      ret.isServer = true;
      ret.filename = carla_strdup_safe(filename);
-@@ -110,6 +157,7 @@ carla_shm_t carla_shm_attach(const char* const filename) noexcept
+@@ -110,6 +141,7 @@ carla_shm_t carla_shm_attach(const char* const filename) noexcept
      carla_shm_t ret;
  
  #ifdef CARLA_OS_WIN
@@ -286,7 +270,7 @@ index 55792112b..88536c384 100644
      ret.map      = INVALID_HANDLE_VALUE;
      ret.isServer = false;
      ret.filename = carla_strdup_safe(filename);
-@@ -166,40 +214,33 @@ void* carla_shm_map(carla_shm_t& shm, const std::size_t size) noexcept
+@@ -166,40 +198,30 @@ void* carla_shm_map(carla_shm_t& shm, const std::size_t size) noexcept
      CARLA_SAFE_ASSERT_RETURN(size > 0, nullptr);
  #ifdef CARLA_OS_WIN
      CARLA_SAFE_ASSERT_RETURN(shm.map == INVALID_HANDLE_VALUE, nullptr);
@@ -300,19 +284,7 @@ index 55792112b..88536c384 100644
 -        HANDLE map;
 -
 -        if (shm.isServer)
-+        SECURITY_ATTRIBUTES sa;
-+        carla_zeroStruct(sa);
-+        sa.nLength = sizeof(sa);
-+        sa.bInheritHandle = TRUE;
-+	
-+        HANDLE map; 
-+        map = ::CreateFileMappingA(shm.file, &sa, PAGE_READWRITE|SEC_COMMIT, 0, size, NULL);
-+
-+        CARLA_SAFE_ASSERT_RETURN(map != nullptr, nullptr);
-+        CARLA_SAFE_ASSERT_RETURN(map != INVALID_HANDLE_VALUE, nullptr);
-+
-+        if (map == nullptr || map == INVALID_HANDLE_VALUE)
-         {
+-        {
 -            SECURITY_ATTRIBUTES sa;
 -            carla_zeroStruct(sa);
 -            sa.nLength = sizeof(sa);
@@ -329,7 +301,16 @@ index 55792112b..88536c384 100644
 -            }
 -        }
 -        else
--        {
++        SECURITY_ATTRIBUTES sa;
++        carla_zeroStruct(sa);
++        sa.nLength = sizeof(sa);
++        sa.bInheritHandle = TRUE;
++	
++        HANDLE map; 
++        map = ::CreateFileMappingA(shm.file, &sa, PAGE_READWRITE|SEC_COMMIT, 0, size, NULL);
++
++        if (map == nullptr || map == INVALID_HANDLE_VALUE)
+         {
 -            map = ::OpenFileMappingA(FILE_MAP_ALL_ACCESS, FALSE, shm.filename);
 -
 -            CARLA_SAFE_ASSERT_RETURN(map != nullptr, nullptr);
@@ -341,11 +322,11 @@ index 55792112b..88536c384 100644
          }
  
 -        void* const ptr = ::MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, size);
-+	void* const ptr = ::MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, size);
++	      void* const ptr = ::MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, size);
  
          if (ptr == nullptr)
          {
-@@ -211,6 +252,7 @@ void* carla_shm_map(carla_shm_t& shm, const std::size_t size) noexcept
+@@ -211,6 +233,7 @@ void* carla_shm_map(carla_shm_t& shm, const std::size_t size) noexcept
          }
  
          shm.map = map;
@@ -353,7 +334,7 @@ index 55792112b..88536c384 100644
          return ptr;
  #else
          if (shm.filename != nullptr)
-@@ -244,17 +286,22 @@ void carla_shm_unmap(carla_shm_t& shm, void* const ptr) noexcept
+@@ -244,6 +267,7 @@ void carla_shm_unmap(carla_shm_t& shm, void* const ptr) noexcept
      CARLA_SAFE_ASSERT_RETURN(ptr != nullptr,);
  #ifdef CARLA_OS_WIN
      CARLA_SAFE_ASSERT_RETURN(shm.map != INVALID_HANDLE_VALUE,);
@@ -361,11 +342,11 @@ index 55792112b..88536c384 100644
  #else
      CARLA_SAFE_ASSERT_RETURN(shm.size > 0,);
  #endif
- 
+@@ -251,10 +275,14 @@ void carla_shm_unmap(carla_shm_t& shm, void* const ptr) noexcept
      try {
  #ifdef CARLA_OS_WIN
-+        const HANDLE file(shm.file);
          const HANDLE map = shm.map;
++        const HANDLE file = shm.file;
 +
          shm.map = INVALID_HANDLE_VALUE;
 +        shm.file = INVALID_HANDLE_VALUE;
@@ -376,7 +357,7 @@ index 55792112b..88536c384 100644
  #else
          const std::size_t size(shm.size);
          shm.size = 0;
-@@ -297,45 +344,20 @@ carla_shm_t carla_shm_create_temp(char* const fileBase) noexcept
+@@ -297,45 +325,20 @@ carla_shm_t carla_shm_create_temp(char* const fileBase) noexcept
          for (std::size_t c = fileBaseLen - 6; c < fileBaseLen; ++c)
              fileBase[c] = charSet[std::rand() % charSetLen];
  

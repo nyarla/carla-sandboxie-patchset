@@ -125,18 +125,26 @@ func main() {
 	cmd.Start()
 	cmd.Wait()
 
+	count := 0
 	_, err := os.Stat(outPath)
 	for os.IsNotExist(err) {
 		_, err = os.Stat(outPath)
+		count++
 		time.Sleep(1 * time.Second)
+		if count > 31 {
+			os.Exit(1)
+		}
 	}
 
 	out, err := ioutil.ReadFile(outPath)
+
+	os.Stdout.Write(out)
+	os.Remove(outPath)
+	os.Remove(outPath + `.tmp`)
+
 	if err != nil {
 		os.Exit(1)
 	}
 
-	os.Stdout.Write(out)
-	os.Remove(outPath)
 	os.Exit(0)
 }

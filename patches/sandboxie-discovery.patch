@@ -1,8 +1,16 @@
 diff --git a/source/discovery/carla-discovery.cpp b/source/discovery/carla-discovery.cpp
-index 1be334e45..b496de35a 100644
+index 1be334e45..273b344dc 100644
 --- a/source/discovery/carla-discovery.cpp
 +++ b/source/discovery/carla-discovery.cpp
-@@ -69,6 +69,8 @@
+@@ -20,6 +20,7 @@
+ #include "CarlaMathUtils.hpp"
+ #include "CarlaMIDI.h"
+ #include "LinkedList.hpp"
++#include "CarlaUtils.hpp"
+ 
+ #ifdef BUILD_BRIDGE
+ # undef HAVE_FLUIDSYNTH
+@@ -69,6 +70,8 @@
  #ifdef CARLA_OS_WIN
  # include <pthread.h>
  # include <objbase.h>
@@ -11,7 +19,291 @@ index 1be334e45..b496de35a 100644
  #endif
  
  #ifdef HAVE_FLUIDSYNTH
-@@ -1668,6 +1670,21 @@ int main(int argc, char* argv[])
+@@ -87,7 +90,11 @@
+ # include "CarlaDssiUtils.hpp"
+ #endif
+ 
++char discoveryOut[MAX_PATH];
++char discoveryOutTemp[MAX_PATH];
++
+ #define DISCOVERY_OUT(x, y) std::cout << "\ncarla-discovery::" << x << "::" << y << std::endl;
++#define DISCOVERY_FLUSH std::cout << std::flush ; ::CopyFile(discoveryOutTemp, discoveryOut, FALSE);
+ 
+ using water::CharPointer_UTF8;
+ using water::File;
+@@ -179,6 +186,8 @@ static void do_cached_check(const PluginType type)
+         print_cached_plugin(pinfo);
+     }
+ 
++    DISCOVERY_FLUSH ;
++
+ # ifdef USING_JUCE
+     if (type == PLUGIN_AU)
+         carla_juce_cleanup();
+@@ -193,6 +202,7 @@ static void do_ladspa_check(lib_t& libHandle, const char* const filename, const
+     if (descFn == nullptr)
+     {
+         DISCOVERY_OUT("error", "Not a LADSPA plugin");
++        DISCOVERY_FLUSH ;
+         return;
+     }
+ 
+@@ -204,6 +214,7 @@ static void do_ladspa_check(lib_t& libHandle, const char* const filename, const
+         if (descriptor == nullptr)
+         {
+             DISCOVERY_OUT("error", "Binary doesn't contain any plugins");
++            DISCOVERY_FLUSH ;
+             return;
+         }
+ 
+@@ -214,6 +225,7 @@ static void do_ladspa_check(lib_t& libHandle, const char* const filename, const
+             if (handle == nullptr)
+             {
+                 DISCOVERY_OUT("error", "Failed to init first LADSPA plugin");
++                DISCOVERY_FLUSH ;
+                 return;
+             }
+ 
+@@ -225,6 +237,7 @@ static void do_ladspa_check(lib_t& libHandle, const char* const filename, const
+             if (libHandle == nullptr)
+             {
+                 print_lib_error(filename);
++                DISCOVERY_FLUSH ;
+                 return;
+             }
+ 
+@@ -233,6 +246,7 @@ static void do_ladspa_check(lib_t& libHandle, const char* const filename, const
+             if (descFn == nullptr)
+             {
+                 DISCOVERY_OUT("error", "Not a LADSPA plugin (#2)");
++                DISCOVERY_FLUSH ;
+                 return;
+             }
+         }
+@@ -418,6 +432,8 @@ static void do_ladspa_check(lib_t& libHandle, const char* const filename, const
+         DISCOVERY_OUT("parameters.outs", parametersOuts);
+         DISCOVERY_OUT("end", "------------");
+     }
++
++    DISCOVERY_FLUSH ;
+ }
+ 
+ static void do_dssi_check(lib_t& libHandle, const char* const filename, const bool doInit)
+@@ -427,6 +443,7 @@ static void do_dssi_check(lib_t& libHandle, const char* const filename, const bo
+     if (descFn == nullptr)
+     {
+         DISCOVERY_OUT("error", "Not a DSSI plugin");
++        DISCOVERY_FLUSH ;
+         return;
+     }
+ 
+@@ -438,6 +455,7 @@ static void do_dssi_check(lib_t& libHandle, const char* const filename, const bo
+         if (descriptor == nullptr)
+         {
+             DISCOVERY_OUT("error", "Binary doesn't contain any plugins");
++            DISCOVERY_FLUSH ;
+             return;
+         }
+ 
+@@ -446,6 +464,7 @@ static void do_dssi_check(lib_t& libHandle, const char* const filename, const bo
+         if (ldescriptor == nullptr)
+         {
+             DISCOVERY_OUT("error", "DSSI plugin doesn't provide the LADSPA interface");
++            DISCOVERY_FLUSH ;
+             return;
+         }
+ 
+@@ -456,6 +475,7 @@ static void do_dssi_check(lib_t& libHandle, const char* const filename, const bo
+             if (handle == nullptr)
+             {
+                 DISCOVERY_OUT("error", "Failed to init first LADSPA plugin");
++                DISCOVERY_FLUSH ;
+                 return;
+             }
+ 
+@@ -467,6 +487,7 @@ static void do_dssi_check(lib_t& libHandle, const char* const filename, const bo
+             if (libHandle == nullptr)
+             {
+                 print_lib_error(filename);
++                DISCOVERY_FLUSH ;
+                 return;
+             }
+ 
+@@ -475,6 +496,7 @@ static void do_dssi_check(lib_t& libHandle, const char* const filename, const bo
+             if (descFn == nullptr)
+             {
+                 DISCOVERY_OUT("error", "Not a DSSI plugin (#2)");
++                DISCOVERY_FLUSH ;
+                 return;
+             }
+         }
+@@ -721,6 +743,8 @@ static void do_dssi_check(lib_t& libHandle, const char* const filename, const bo
+         DISCOVERY_OUT("parameters.outs", parametersOuts);
+         DISCOVERY_OUT("end", "------------");
+     }
++
++    DISCOVERY_FLUSH ;
+ }
+ 
+ #ifndef BUILD_BRIDGE
+@@ -756,6 +780,7 @@ static void do_lv2_check(const char* const bundle, const bool doInit)
+     if (URIs.size() == 0)
+     {
+         DISCOVERY_OUT("warning", "LV2 Bundle doesn't provide any plugins");
++        DISCOVERY_FLUSH ;
+         return;
+     }
+ 
+@@ -805,6 +830,8 @@ static void do_lv2_check(const char* const bundle, const bool doInit)
+ 
+         print_cached_plugin(get_cached_plugin_lv2(lv2World, lilvPlugin));
+     }
++
++    DISCOVERY_FLUSH ;
+ }
+ #endif
+ 
+@@ -1024,6 +1051,7 @@ static void do_vst_check(lib_t& libHandle, const char* const filename, const boo
+         {
+             CFRelease(bundleRef);
+             DISCOVERY_OUT("error", "Failed to load VST bundle executable");
++            DISCOVERY_FLUSH ;
+             return;
+         }
+ 
+@@ -1037,6 +1065,7 @@ static void do_vst_check(lib_t& libHandle, const char* const filename, const boo
+             CFBundleUnloadExecutable(bundleRef);
+             CFRelease(bundleRef);
+             DISCOVERY_OUT("error", "Not a VST plugin");
++            DISCOVERY_FLUSH ;
+             return;
+         }
+ 
+@@ -1054,6 +1083,7 @@ static void do_vst_check(lib_t& libHandle, const char* const filename, const boo
+             if (vstFn == nullptr)
+             {
+                 DISCOVERY_OUT("error", "Not a VST plugin");
++                DISCOVERY_FLUSH ;
+                 return;
+             }
+         }
+@@ -1064,6 +1094,7 @@ static void do_vst_check(lib_t& libHandle, const char* const filename, const boo
+     if (effect == nullptr || effect->magic != kEffectMagic)
+     {
+         DISCOVERY_OUT("error", "Failed to init VST plugin, or VST magic failed");
++        DISCOVERY_FLUSH ;
+         return;
+     }
+ 
+@@ -1088,6 +1119,7 @@ static void do_vst_check(lib_t& libHandle, const char* const filename, const boo
+     if (effect->uniqueID == 0 && !isShell)
+     {
+         DISCOVERY_OUT("error", "Plugin doesn't have an Unique ID after being open");
++        DISCOVERY_FLUSH ;
+         effect->dispatcher(effect, effClose, 0, 0, nullptr, 0.0f);
+         return;
+     }
+@@ -1355,6 +1387,8 @@ static void do_vst_check(lib_t& libHandle, const char* const filename, const boo
+         effect = nullptr;
+     }
+ 
++    DISCOVERY_FLUSH ;
++
+     uniqueIds.clear();
+ 
+     if (effect != nullptr)
+@@ -1440,6 +1474,7 @@ static bool do_juce_check(const char* const filename_, const char* const stype,
+         pluginFormat = new juce::VSTPluginFormat();
+ #else
+         DISCOVERY_OUT("error", "VST2 support not available");
++        DISCOVERY_FLUSH ;
+         return false;
+ #endif
+     }
+@@ -1449,6 +1484,7 @@ static bool do_juce_check(const char* const filename_, const char* const stype,
+         pluginFormat = new juce::VST3PluginFormat();
+ #else
+         DISCOVERY_OUT("error", "VST3 support not available");
++        DISCOVERY_FLUSH ;
+         return false;
+ #endif
+     }
+@@ -1458,6 +1494,7 @@ static bool do_juce_check(const char* const filename_, const char* const stype,
+         pluginFormat = new juce::AudioUnitPluginFormat();
+ #else
+         DISCOVERY_OUT("error", "AU support not available");
++        DISCOVERY_FLUSH ;
+         return false;
+ #endif
+     }
+@@ -1465,6 +1502,7 @@ static bool do_juce_check(const char* const filename_, const char* const stype,
+     if (pluginFormat == nullptr)
+     {
+         DISCOVERY_OUT("error", stype << " support not available");
++        DISCOVERY_FLUSH ;
+         return false;
+     }
+ 
+@@ -1483,6 +1521,7 @@ static bool do_juce_check(const char* const filename_, const char* const stype,
+             return true;
+ #endif
+         DISCOVERY_OUT("error", "No plugins found");
++        DISCOVERY_FLUSH ;
+         return false;
+     }
+ 
+@@ -1540,6 +1579,8 @@ static bool do_juce_check(const char* const filename_, const char* const stype,
+         DISCOVERY_OUT("end", "------------");
+     }
+ 
++    DISCOVERY_FLUSH ;
++
+     carla_juce_idle();
+     carla_juce_cleanup();
+     return false;
+@@ -1555,12 +1596,14 @@ static void do_fluidsynth_check(const char* const filename, const PluginType typ
+     if (! file.existsAsFile())
+     {
+         DISCOVERY_OUT("error", "Requested file is not valid or does not exist");
++        DISCOVERY_FLUSH ;
+         return;
+     }
+ 
+     if (type == PLUGIN_SF2 && ! fluid_is_soundfont(filename))
+     {
+         DISCOVERY_OUT("error", "Not a SF2 file");
++        DISCOVERY_FLUSH ;
+         return;
+     }
+ 
+@@ -1579,6 +1622,7 @@ static void do_fluidsynth_check(const char* const filename, const PluginType typ
+         if (f_id_test < 0)
+         {
+             DISCOVERY_OUT("error", "Failed to load SF2 file");
++            DISCOVERY_FLUSH ;
+             return;
+         }
+ 
+@@ -1625,6 +1669,7 @@ static void do_fluidsynth_check(const char* const filename, const PluginType typ
+ 
+     // 16 channels
+     if (doInit && (name.isEmpty() || programs <= 1))
++        DISCOVERY_FLUSH ;
+         return;
+ 
+     name += " (16 outputs)";
+@@ -1640,8 +1685,10 @@ static void do_fluidsynth_check(const char* const filename, const PluginType typ
+     DISCOVERY_OUT("parameters.ins", 13); // defined in Carla
+     DISCOVERY_OUT("parameters.outs", 1);
+     DISCOVERY_OUT("end", "------------");
++    DISCOVERY_FLUSH ;
+ #else // HAVE_FLUIDSYNTH
+     DISCOVERY_OUT("error", "SF2 support not available");
++    DISCOVERY_FLUSH ;
+     return;
+ 
+     // unused
+@@ -1668,6 +1715,24 @@ int main(int argc, char* argv[])
      CarlaString filenameCheck(filename);
      filenameCheck.toLower();
  
@@ -23,17 +315,68 @@ index 1be334e45..b496de35a 100644
 +#else
 +    CarlaString discoveryBit("32");
 +#endif
-+  
-+    char outPath[MAX_PATH];
-+    sprintf(outPath, "%s\\carla-discovery_%s_%s", getenv("TEMP"), discoveryBit.buffer(), pluginPath.toBasic().buffer());
++ 
++    carla_zeroChars(discoveryOut, MAX_PATH);
++    carla_zeroChars(discoveryOutTemp, MAX_PATH);
 +
-+    std::ofstream buf(outPath);
++    sprintf(discoveryOut, "%s\\carla-discovery_%s_%s", getenv("TEMP"), discoveryBit.buffer(), pluginPath.toBasic().buffer());
++    sprintf(discoveryOutTemp, "%s.tmp", discoveryOut);
++
++    std::ofstream buf(discoveryOutTemp);
 +    std::cout.rdbuf(buf.rdbuf());
 +
      bool openLib = false;
      lib_t handle = nullptr;
  
-@@ -1856,6 +1873,7 @@ int main(int argc, char* argv[])
+@@ -1688,6 +1753,7 @@ int main(int argc, char* argv[])
+     if (type != PLUGIN_SF2 && filenameCheck.contains("fluidsynth", true))
+     {
+         DISCOVERY_OUT("info", "skipping fluidsynth based plugin");
++        DISCOVERY_FLUSH ;
+         return 0;
+     }
+ 
+@@ -1724,6 +1790,7 @@ int main(int argc, char* argv[])
+         if (handle == nullptr)
+         {
+             print_lib_error(filename);
++            DISCOVERY_FLUSH ;
+             return 1;
+         }
+     }
+@@ -1742,6 +1809,7 @@ int main(int argc, char* argv[])
+         if (! lib_close(handle))
+         {
+             print_lib_error(filename);
++            DISCOVERY_FLUSH ;
+             return 1;
+         }
+ 
+@@ -1750,6 +1818,7 @@ int main(int argc, char* argv[])
+         if (handle == nullptr)
+         {
+             print_lib_error(filename);
++            DISCOVERY_FLUSH ;
+             return 1;
+         }
+     }
+@@ -1810,6 +1879,7 @@ int main(int argc, char* argv[])
+         retryJucePlugin = do_juce_check(filename, "VST3", doInit);
+ #else
+         DISCOVERY_OUT("error", "VST3 support not available");
++        DISCOVERY_FLUSH ;
+ #endif
+         break;
+ 
+@@ -1818,6 +1888,7 @@ int main(int argc, char* argv[])
+         do_juce_check(filename, "AU", doInit);
+ #else
+         DISCOVERY_OUT("error", "AU support not available");
++        DISCOVERY_FLUSH ;
+ #endif
+          break;
+ 
+@@ -1856,6 +1927,7 @@ int main(int argc, char* argv[])
      if (openLib && handle != nullptr)
          lib_close(handle);
  
@@ -41,7 +384,7 @@ index 1be334e45..b496de35a 100644
      // ---------------------------------------------------------------------------------------------------------------
  
  #ifdef CARLA_OS_WIN
-@@ -1867,6 +1885,7 @@ int main(int argc, char* argv[])
+@@ -1867,6 +1939,7 @@ int main(int argc, char* argv[])
      OleUninitialize();
  #endif
  

@@ -1,11 +1,11 @@
 .PHONY: all build proxy finalize submodule patch docker clean
 
-all: clean build finalize
+all: clean patch build finalize
 
-build: patch docker proxy
+build: docker proxy
 	docker run --rm -it \
 		-v $(shell pwd)/Carla:/home/builder/src \
-		-v $(shell pwd)/dist:/home/builder/dist \
+		-v $(shell pwd)/cache:/home/builder/PawPawBuilds \
 		-u builder nyarla/carla \
 		-c '(cd src/Carla && make distclean && cd ../../) ; \
 				./src/build.sh win64 ; \
@@ -14,6 +14,12 @@ build: patch docker proxy
 			  rm ./PawPawBuilds/targets/win64/lib/python3.8/site-packages/liblo.pyd ; \
 			  ./src/build.sh win64'
 
+debug: docker
+	docker run --rm -it \
+		-v $(shell pwd)/Carla:/home/builder/src \
+		-v $(shell pwd)/cache:/home/builder/PawPawBuilds \
+		-u builder nyarla/carla
+
 proxy:
 	cd proxy && (	\
 			GOOS=windows GOARCH=amd64 go build -ldflags="-H windowsgui" -o ../builds/carla-bridge-native.exe carla-bridge.go ; \
@@ -21,7 +27,7 @@ proxy:
 			GOOS=windows GOARCH=amd64 go build -ldflags="-H windowsgui" -o ../builds/carla-discovery-native.exe carla-discovery.go ; \
 			GOOS=windows GOARCH=386 go build -ldflags="-H windowsgui" -o ../builds/carla-discovery-win32.exe carla-discovery.go ;)
 
-finalize:
+finalize: proxy
 	cp Carla/Carla/Carla-2.3-win64.zip builds/
 	cd builds && unzip Carla-2.3-win64.zip
 	cd builds/Carla-*/ && bash -c 'for app in Carla Carla.lv2 Carla.vst; do \
@@ -35,19 +41,21 @@ finalize:
 			cp _carla-discovery-native.exe _carla-discovery-win64.exe ; \
 		cd ..) ; \
 	done'
-	cd builds/Carla-* && cp -R . ../../dist/
+	cd builds/Carla-2.3-win64 && cp -R . ../../dist/
 
 submodule:
 	git submodule update --init --recursive
 
 patch:
 	cd Carla/Carla \
-		&& ( patch -p1 -i ../../patches/sandboxie-support.patch; \
-				 patch -p1 -i ../../patches/sandboxie-discovery.patch; )
-
+		&& ( git restore . ; \
+				 patch -p1 -i ../../patches/sandboxie-support.patch; \
+				 patch -p1 -i ../../patches/sandboxie-discovery.patch ; \
+				 patch -p1 -i ../../patches/split-carla-vst.patch ; )
 docker:
 	docker build -t nyarla/carla .
 
 clean:
-	cd Carla/Carla && git restore .
+	rm -rf dist/*
 	rm -rf builds/*
+	rm cache/targets/win64/lib/python3.8/site-packages/liblo.pyd || true 

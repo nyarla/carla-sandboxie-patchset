@@ -3,3 +3,6 @@ dist/
 
 builds/
 !builds/.gitkeep
+
+cache/
+!cache/.gitkeep

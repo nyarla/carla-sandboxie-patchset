@@ -99,7 +99,9 @@ func main() {
 
 	hasSandboxPrefix := strings.HasPrefix(pluginPath, sandboxiePrefixPath)
 
-	var cmd *exec.Cmd
+	var (
+		cmd, terminate *exec.Cmd
+	)
 	if isSandboxSupported && hasSandboxPrefix {
 		box, fakePluginPath := getSandboxDirs(pluginPath)
 
@@ -107,10 +109,11 @@ func main() {
 		os.Args[2] = fakePluginPath
 		pluginPath = fakePluginPath
 
-		cmdline := []string{sandboxieStartPath, fmt.Sprintf(`/box:%s`, box), `/silent`, `/nosbiectrl`}
+		cmdline := []string{sandboxieStartPath, fmt.Sprintf(`/box:%s`, box), `/silent`, `/nosbiectrl`, `/wait`}
 		cmdline = append(cmdline, os.Args[0:]...)
 
 		cmd = exec.Command(cmdline[0], cmdline[1:]...)
+		terminate = exec.Command(sandboxieStartPath, fmt.Sprintf(`/box:%s`, box), `/terminate`, `/wait`)
 	} else {
 		cmd = exec.Command(getRealExecutable(os.Args[0]), os.Args[1:]...)
 	}
@@ -121,9 +124,21 @@ func main() {
 	cmd.Stderr = os.Stderr
 
 	outPath := getDiscoveryOutPath(pluginPath, is64bit)
+	lock := fmt.Sprintf(`%s\carla-discovery-lock`, os.Getenv(`TEMP`))
 
-	cmd.Start()
-	cmd.Wait()
+	for {
+		_, err := os.Create(lock)
+		if err == nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if isSandboxSupported && hasSandboxPrefix {
+		cmd.Start()
+	} else {
+		cmd.Run()
+	}
 
 	count := 0
 	_, err := os.Stat(outPath)
@@ -131,16 +146,24 @@ func main() {
 		_, err = os.Stat(outPath)
 		count++
 		time.Sleep(1 * time.Second)
-		if count > 31 {
+		if count > 60 {
 			os.Exit(1)
 		}
 	}
 
 	out, err := ioutil.ReadFile(outPath)
+	if err == nil {
+		os.Stdout.Write(out)
+	}
 
-	os.Stdout.Write(out)
 	os.Remove(outPath)
 	os.Remove(outPath + `.tmp`)
+
+	if isSandboxSupported && hasSandboxPrefix {
+		terminate.Run()
+	}
+
+	os.Remove(lock)
 
 	if err != nil {
 		os.Exit(1)

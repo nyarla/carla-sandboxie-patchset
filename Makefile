@@ -37,8 +37,6 @@ finalize: proxy
 			mv carla-bridge-win32.exe _carla-bridge-win32.exe ; \
 			mv carla-bridge-native.exe _carla-bridge-native.exe ; \
 			cp ../../carla-*-*.exe . ; \
-			cp carla-discovery-native.exe carla-discovery-win64.exe ; \
-			cp _carla-discovery-native.exe _carla-discovery-win64.exe ; \
 		cd ..) ; \
 	done'
 	cd builds/Carla-2.3-win64 && cp -R . ../../dist/

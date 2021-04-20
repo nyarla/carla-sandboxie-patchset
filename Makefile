@@ -28,8 +28,8 @@ proxy:
 			GOOS=windows GOARCH=386 go build -ldflags="-H windowsgui" -o ../builds/carla-discovery-win32.exe carla-discovery.go ;)
 
 finalize: proxy
-	cp Carla/Carla/Carla-2.3-win64.zip builds/
-	cd builds && unzip Carla-2.3-win64.zip
+	cp Carla/Carla/Carla-2.3.0-win64.zip builds/
+	cd builds && unzip Carla-2.3.0-win64.zip
 	cd builds/Carla-*/ && bash -c 'for app in Carla Carla.lv2 Carla.vst; do \
 		(cd $$app ; \
 			mv carla-discovery-win32.exe _carla-discovery-win32.exe ; \
@@ -39,7 +39,7 @@ finalize: proxy
 			cp ../../carla-*-*.exe . ; \
 		cd ..) ; \
 	done'
-	cd builds/Carla-2.3-win64 && cp -R . ../../dist/
+	cd builds/Carla-2.3.0-win64 && cp -R . ../../dist/
 
 submodule:
 	git submodule update --init --recursive

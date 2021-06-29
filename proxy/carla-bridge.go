@@ -9,18 +9,24 @@ import (
 )
 
 var (
-	sandboxiePrefix string
-	sandboxieStart  string
+	unixLikePrefix       string
+	unixLikeStart        string
+	isSandboxieSupported bool
 )
 
-func normalizePath(src string) string {
+func getWindowsPath(src string) string {
+	return strings.ReplaceAll(src, `/`, `\`)
+}
+
+func getUnixLikePath(src string) string {
 	return strings.ReplaceAll(src, `\`, `/`)
 }
 
-func getSandboxieContainerInfo(src string) (box string, fakePath string) {
-	dirs := strings.Split(strings.TrimPrefix(normalizePath(src), sandboxiePrefix), `/`)
-	for idx, seg := range dirs {
-		if seg == "drive" {
+func getSandboxieContainerPath(src string) (box string, fakePath string) {
+	dirs := strings.Split(getUnixLikePath(src), `/`)
+
+	for idx, dir := range dirs {
+		if dir == `drive` {
 			drive := dirs[idx+1]
 			path := strings.Join(dirs[idx+2:], `/`)
 
@@ -34,30 +40,60 @@ func getSandboxieContainerInfo(src string) (box string, fakePath string) {
 	return
 }
 
-func executable(src string) string {
-	return normalizePath(filepath.Join(filepath.Dir(src), fmt.Sprintf(`_%s`, filepath.Base(src))))
+func getRealPathFromSymlink(src string) (ok bool, realPath string) {
+	path := getWindowsPath(src)
+
+	if dest, err := os.Readlink(path); err != nil {
+		ok = false
+		realPath = src
+		return
+	} else {
+		ok = true
+		realPath = dest
+	}
+
+	return
+}
+
+func isSandboxedPlugin(src string) bool {
+	return strings.HasPrefix(getUnixLikePath(src), unixLikePrefix)
+}
+
+func getExecPath(src string) string {
+	dir := filepath.Dir(src)
+	fn := filepath.Base(src)
+
+	return getUnixLikePath(filepath.Join(dir, fmt.Sprintf(`_%s`, fn)))
 }
 
 func init() {
-	sandboxiePrefix = normalizePath(os.Getenv(`CARLA_SANDBOXIE_PREFIX`))
-	sandboxieStart = normalizePath(os.Getenv(`CARLA_SANDBOXIE_START`))
+	unixLikePrefix = getUnixLikePath(os.Getenv(`CARLA_SANDBOXIE_PREFIX`))
+	unixLikeStart = getUnixLikePath(os.Getenv(`CARLA_SANDBOXIE_START`))
+	isSandboxieSupported = unixLikePrefix != `` && unixLikeStart != ``
 }
 
 func main() {
 	var cmd *exec.Cmd
 
-	if sandboxiePrefix != "" && sandboxieStart != "" && strings.HasPrefix(os.Args[2], sandboxiePrefix) {
-		box, fakePath := getSandboxieContainerInfo(os.Args[2])
+	if ok, realWindowsPath := getRealPathFromSymlink(os.Args[2]); ok {
+		os.Args[2] = getUnixLikePath(realWindowsPath)
+	}
 
-		os.Args[0] = executable(os.Args[0])
-		os.Args[2] = fakePath
+	if isSandboxieSupported && isSandboxedPlugin(os.Args[2]) {
+		box, fakePath := getSandboxieContainerPath(os.Args[2])
 
-		commandLine := []string{sandboxieStart, fmt.Sprintf(`/box:%s`, box), `/wait`, `/silent`, `/nosbiectrl`}
-		commandLine = append(commandLine, os.Args[0:]...)
+		os.Args[0] = getExecPath(os.Args[0])
+		os.Args[2] = getUnixLikePath(fakePath)
 
-		cmd = exec.Command(commandLine[0], commandLine[1:]...)
+		cmdline := []string{unixLikeStart, fmt.Sprintf(`/box:%s`, box), `/wait`, `/silent`, `/nosbiectrl`}
+		cmdline = append(cmdline, os.Args[0:]...)
+
+		cmd = exec.Command(cmdline[0], cmdline[1:]...)
 	} else {
-		cmd = exec.Command(executable(os.Args[0]), os.Args[1:]...)
+		os.Args[0] = getUnixLikePath(os.Args[0])
+		os.Args[2] = getUnixLikePath(os.Args[2])
+
+		cmd = exec.Command(getExecPath(os.Args[0]), os.Args[1:]...)
 	}
 
 	cmd.Env = os.Environ()
@@ -66,7 +102,8 @@ func main() {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
-		fmt.Errorf("%s", err)
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
 
 	cmd.Wait()

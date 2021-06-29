@@ -3,7 +3,6 @@ package main
 import (
 	"debug/pe"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,31 +13,29 @@ import (
 )
 
 var (
-	sandboxiePrefixPath string
-	sandboxieStartPath  string
-	isSandboxSupported  bool
+	unixLikePrefix       string
+	unixLikeStart        string
+	isSandboxieSupported bool
 )
 
-const (
-	CARLA_SANDBOXIE_PREFIX = `CARLA_SANDBOXIE_PREFIX`
-	CARLA_SANDBOXIE_START  = `CARLA_SANDBOXIE_START`
-)
-
-func normalizePath(src string) string {
+func getWindowsPath(src string) string {
 	return strings.ReplaceAll(src, `/`, `\`)
 }
 
-func getSandboxDirs(src string) (box string, pluginPath string) {
-	src = strings.TrimPrefix(normalizePath(src), sandboxiePrefixPath)
-	dirs := strings.Split(src, `\`)
+func getUnixLikePath(src string) string {
+	return strings.ReplaceAll(src, `\`, `/`)
+}
+
+func getSandboxieContainerPath(src string) (box string, fakePath string) {
+	dirs := strings.Split(getUnixLikePath(src), `/`)
 
 	for idx, dir := range dirs {
-		if dir == "drive" {
+		if dir == `drive` {
 			drive := dirs[idx+1]
-			path := strings.Join(dirs[idx+2:], `\`)
+			path := strings.Join(dirs[idx+2:], `/`)
 
 			box = dirs[idx-1]
-			pluginPath = fmt.Sprintf(`%s:\%s`, drive, path)
+			fakePath = fmt.Sprintf(`%s:/%s`, drive, path)
 
 			return
 		}
@@ -47,16 +44,42 @@ func getSandboxDirs(src string) (box string, pluginPath string) {
 	return
 }
 
-func getRealExecutable(src string) string {
-	src = normalizePath(src)
-	dir := filepath.Dir(src)
-	fn := fmt.Sprintf(`_%s`, filepath.Base(src))
+func getRealPathFromSymlink(src string) (ok bool, realPath string) {
+	path := getWindowsPath(src)
 
-	return strings.Join([]string{dir, fn}, `\`)
+	if dest, err := os.Readlink(path); err != nil {
+		ok = false
+		realPath = src
+		return
+	} else {
+		ok = true
+		realPath = dest
+	}
+
+	return
 }
 
-func isSupportedArch(is64bit bool, fn string) bool {
-	file, err := pe.Open(fn)
+func isSandboxedPlugin(src string) bool {
+	return strings.HasPrefix(getUnixLikePath(src), unixLikePrefix)
+}
+
+func getExecPath(src string) string {
+	dir := filepath.Dir(src)
+	fn := filepath.Base(src)
+
+	return getUnixLikePath(filepath.Join(dir, fmt.Sprintf(`_%s`, fn)))
+}
+
+func init() {
+	unixLikePrefix = getUnixLikePath(os.Getenv(`CARLA_SANDBOXIE_PREFIX`))
+	unixLikeStart = getUnixLikePath(os.Getenv(`CARLA_SANDBOXIE_START`))
+	isSandboxieSupported = unixLikePrefix != `` && unixLikeStart != ``
+}
+
+func isSupportedArch(is64bit bool, src string) bool {
+	path := getWindowsPath(src)
+	file, err := pe.Open(path)
+
 	if err != nil {
 		return false
 	}
@@ -69,53 +92,49 @@ func isSupportedArch(is64bit bool, fn string) bool {
 }
 
 func getDiscoveryOutPath(src string, is64bit bool) string {
-	re := regexp.MustCompile(`[^a-zA-Z0-9_]`)
-	src = re.ReplaceAllString(src, `_`)
-
-	outBit := `64`
+	re := regexp.MustCompile(`[^a-zA-Z0-9]`)
+	path := re.ReplaceAllString(getWindowsPath(src), `_`)
+	bit := `64`
 	if !is64bit {
-		outBit = `32`
+		bit = `32`
 	}
 
-	return fmt.Sprintf(`%s\carla-discovery_%s_%s`, os.Getenv(`TEMP`), outBit, src)
-}
+	dest := fmt.Sprintf(`%s\carla-discovery_%s_%s`, os.Getenv(`TEMP`), bit, path)
 
-func init() {
-	sandboxiePrefixPath = normalizePath(os.Getenv(CARLA_SANDBOXIE_PREFIX))
-	sandboxieStartPath = normalizePath(os.Getenv(CARLA_SANDBOXIE_START))
-
-	if sandboxiePrefixPath != "" && sandboxieStartPath != "" {
-		isSandboxSupported = true
-	}
+	return getWindowsPath(dest)
 }
 
 func main() {
 	is64bit := runtime.GOARCH == "amd64"
-	pluginPath := normalizePath(os.Args[2])
 
-	if !isSupportedArch(is64bit, pluginPath) {
-		os.Exit(1)
+	if ok, realWindowsPath := getRealPathFromSymlink(os.Args[2]); ok {
+		os.Args[2] = getUnixLikePath(realWindowsPath)
 	}
 
-	hasSandboxPrefix := strings.HasPrefix(pluginPath, sandboxiePrefixPath)
+	pluginPath := os.Args[2]
+	if !isSupportedArch(is64bit, pluginPath) {
+		os.Exit(0)
+	}
 
 	var (
 		cmd, terminate *exec.Cmd
+		isSandboxied   bool = isSandboxedPlugin(os.Args[2])
 	)
-	if isSandboxSupported && hasSandboxPrefix {
-		box, fakePluginPath := getSandboxDirs(pluginPath)
 
-		os.Args[0] = getRealExecutable(os.Args[0])
-		os.Args[2] = fakePluginPath
-		pluginPath = fakePluginPath
+	if isSandboxieSupported && isSandboxied {
+		box, fakePath := getSandboxieContainerPath(os.Args[2])
 
-		cmdline := []string{sandboxieStartPath, fmt.Sprintf(`/box:%s`, box), `/silent`, `/nosbiectrl`, `/wait`}
+		os.Args[0] = getExecPath(os.Args[0])
+		os.Args[2] = getUnixLikePath(fakePath)
+		pluginPath = getUnixLikePath(fakePath)
+
+		cmdline := []string{unixLikeStart, fmt.Sprintf(`/box:%s`, box), `/wait`, `/silent`, `/nosbiectrl`}
 		cmdline = append(cmdline, os.Args[0:]...)
 
 		cmd = exec.Command(cmdline[0], cmdline[1:]...)
-		terminate = exec.Command(sandboxieStartPath, fmt.Sprintf(`/box:%s`, box), `/terminate`, `/wait`)
+		terminate = exec.Command(unixLikeStart, fmt.Sprintf(`/box:%s`, box), `/terminate`, `/wait`)
 	} else {
-		cmd = exec.Command(getRealExecutable(os.Args[0]), os.Args[1:]...)
+		cmd = exec.Command(getExecPath(os.Args[0]), os.Args[1:]...)
 	}
 
 	cmd.Env = os.Environ()
@@ -124,17 +143,8 @@ func main() {
 	cmd.Stderr = os.Stderr
 
 	outPath := getDiscoveryOutPath(pluginPath, is64bit)
-	lock := fmt.Sprintf(`%s\carla-discovery-lock`, os.Getenv(`TEMP`))
 
-	for {
-		_, err := os.Create(lock)
-		if err == nil {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-
-	if isSandboxSupported && hasSandboxPrefix {
+	if isSandboxieSupported && isSandboxied {
 		cmd.Start()
 	} else {
 		cmd.Run()
@@ -151,7 +161,7 @@ func main() {
 		}
 	}
 
-	out, err := ioutil.ReadFile(outPath)
+	out, err := os.ReadFile(outPath)
 	if err == nil {
 		os.Stdout.Write(out)
 	}
@@ -159,11 +169,9 @@ func main() {
 	os.Remove(outPath)
 	os.Remove(outPath + `.tmp`)
 
-	if isSandboxSupported && hasSandboxPrefix {
+	if isSandboxieSupported && isSandboxied {
 		terminate.Run()
 	}
-
-	os.Remove(lock)
 
 	if err != nil {
 		os.Exit(1)

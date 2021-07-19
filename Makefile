@@ -54,7 +54,7 @@ docker:
 	docker build -t nyarla/carla .
 
 clean:
-	rm -rf dist/*
 	rm -rf builds/*
-	rm -rf cache/builds
-	rm -rf cache/targets
+	rm -rf dist/*
+	rm -rf cache/builds/win64/carla*
+	rm -rf cache/targets/win64/lib/python3.8/site-packages/liblo.pyd || true

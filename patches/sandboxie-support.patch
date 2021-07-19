@@ -1,3 +1,16 @@
+diff --git a/source/backend/plugin/CarlaPluginJuce.cpp b/source/backend/plugin/CarlaPluginJuce.cpp
+index 94c37e325..9451940c6 100644
+--- a/source/backend/plugin/CarlaPluginJuce.cpp
++++ b/source/backend/plugin/CarlaPluginJuce.cpp
+@@ -494,7 +494,7 @@ public:
+                         uiName += " (GUI)";
+                     }
+ 
+-                    fWindow = new JucePluginWindow(opts.frontendWinId);
++                    fWindow = new JucePluginWindow(0);
+                     fWindow->setName(uiName);
+                 }
+ 
 diff --git a/source/utils/CarlaBridgeUtils.cpp b/source/utils/CarlaBridgeUtils.cpp
 index 64abffb96..7de396c38 100644
 --- a/source/utils/CarlaBridgeUtils.cpp
@@ -152,28 +165,6 @@ index e8b9f506c..90a88243a 100644
          const bool ok;
  
          WaitHelper(BridgeRtClientControl& c) noexcept;
-diff --git a/source/utils/CarlaPluginUI.cpp b/source/utils/CarlaPluginUI.cpp
-index 919dec494..3abdbd947 100644
---- a/source/utils/CarlaPluginUI.cpp
-+++ b/source/utils/CarlaPluginUI.cpp
-@@ -752,16 +752,14 @@ public:
- 
- #ifdef BUILDING_CARLA_FOR_WINE
-         const uint winType = WS_EX_DLGMODALFRAME;
--        const HWND parent  = nullptr;
- #else
-         const uint winType = WS_EX_TOOLWINDOW;
--        const HWND parent  = (HWND)parentId;
- #endif
- 
-         fWindow = CreateWindowEx(winType,
-                                  classNameBuf, "Carla Plugin UI", winFlags,
-                                  CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
--                                 parent, nullptr,
-+                                 NULL, nullptr,
-                                  hInstance, nullptr);
- 
-         if (fWindow == nullptr) {
 diff --git a/source/utils/CarlaSemUtils.hpp b/source/utils/CarlaSemUtils.hpp
 index 755265f80..7bda05c0b 100644
 --- a/source/utils/CarlaSemUtils.hpp
@@ -405,3 +396,30 @@ index 55792112b..11e869d1b 100644
          // some unknown error occurred, return null
          return gNullCarlaShm;
      }
+diff --git a/source/utils/JucePluginWindow.hpp b/source/utils/JucePluginWindow.hpp
+index c680ee17d..ecb5b8353 100644
+--- a/source/utils/JucePluginWindow.hpp
++++ b/source/utils/JucePluginWindow.hpp
+@@ -46,11 +46,11 @@ public:
+         : DialogWindow("JucePluginWindow", Colour(50, 50, 200), true, false),
+           fClosed(false),
+           fShown(false),
+-          fTransientId(parentId)
++          fTransientId(0)
+     {
+         setVisible(false);
+         setOpaque(true);
+-        setResizable(false, false);
++        setResizable(true, false);
+         setUsingNativeTitleBar(true);
+     }
+ 
+@@ -102,7 +102,7 @@ protected:
+ 
+     int getDesktopWindowStyleFlags() const override
+     {
+-        return ComponentPeer::windowHasDropShadow | ComponentPeer::windowHasTitleBar | ComponentPeer::windowHasCloseButton;
++        return ComponentPeer::windowHasDropShadow | ComponentPeer::windowHasTitleBar | ComponentPeer::windowHasCloseButton | ComponentPeer::windowIsResizable;
+     }
+ 
+     void handleCommandMessage(const int comamndId) override

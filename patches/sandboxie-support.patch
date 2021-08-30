@@ -1,13 +1,13 @@
 diff --git a/source/backend/plugin/CarlaPluginJuce.cpp b/source/backend/plugin/CarlaPluginJuce.cpp
-index 94c37e325..9451940c6 100644
+index 718ee3b73..febf9aa35 100644
 --- a/source/backend/plugin/CarlaPluginJuce.cpp
 +++ b/source/backend/plugin/CarlaPluginJuce.cpp
-@@ -494,7 +494,7 @@ public:
-                         uiName += " (GUI)";
-                     }
+@@ -499,7 +499,7 @@ public:
+                                           ? (AEffect*)fInstance->getPlatformSpecificData()
+                                           : nullptr;
  
--                    fWindow = new JucePluginWindow(opts.frontendWinId);
-+                    fWindow = new JucePluginWindow(0);
+-                    fWindow = new JucePluginWindow(opts.frontendWinId, opts.pluginsAreStandalone, effect);
++                    fWindow = new JucePluginWindow(0, opts.pluginsAreStandalone, effect);
                      fWindow->setName(uiName);
                  }
  
@@ -397,15 +397,19 @@ index 55792112b..11e869d1b 100644
          return gNullCarlaShm;
      }
 diff --git a/source/utils/JucePluginWindow.hpp b/source/utils/JucePluginWindow.hpp
-index c680ee17d..ecb5b8353 100644
+index 277732ba2..d14ec1270 100644
 --- a/source/utils/JucePluginWindow.hpp
 +++ b/source/utils/JucePluginWindow.hpp
-@@ -46,11 +46,11 @@ public:
-         : DialogWindow("JucePluginWindow", Colour(50, 50, 200), true, false),
+@@ -48,7 +48,7 @@ public:
+           fIsStandalone(isStandalone),
            fClosed(false),
            fShown(false),
--          fTransientId(parentId)
-+          fTransientId(0)
+-          fTransientId(parentId),
++          fTransientId(0),
+           fLastKeyIndex(0),
+           fLastKeyValue(0),
+           fLastModifiers(),
+@@ -56,7 +56,7 @@ public:
      {
          setVisible(false);
          setOpaque(true);
@@ -414,12 +418,11 @@ index c680ee17d..ecb5b8353 100644
          setUsingNativeTitleBar(true);
      }
  
-@@ -102,7 +102,7 @@ protected:
- 
-     int getDesktopWindowStyleFlags() const override
-     {
--        return ComponentPeer::windowHasDropShadow | ComponentPeer::windowHasTitleBar | ComponentPeer::windowHasCloseButton;
-+        return ComponentPeer::windowHasDropShadow | ComponentPeer::windowHasTitleBar | ComponentPeer::windowHasCloseButton | ComponentPeer::windowIsResizable;
-     }
- 
-     void handleCommandMessage(const int comamndId) override
+@@ -283,6 +283,7 @@ protected:
+         wflags |= ComponentPeer::windowHasCloseButton;
+         wflags |= ComponentPeer::windowHasDropShadow;
+         wflags |= ComponentPeer::windowHasTitleBar;
++        wflags |= ComponentPeer::windowIsResizable;
+         if (fIsStandalone)
+             wflags |= ComponentPeer::windowAppearsOnTaskbar;
+         return wflags;

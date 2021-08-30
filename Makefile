@@ -9,10 +9,7 @@ build: docker proxy
 		-u builder nyarla/carla \
 		-c '(cd src/Carla && make distclean && cd ../../) ; \
 				./src/build.sh win64 ; \
-			  ./src/build.sh win64 ; \
-			  ./src/build.sh win64 ; \
-			  rm ./PawPawBuilds/targets/win64/lib/python3.8/site-packages/liblo.pyd ; \
-			  ./src/build.sh win64'
+			  ./src/build.sh win64 ;'
 
 debug: docker
 	docker run --rm -it \
@@ -28,8 +25,8 @@ proxy:
 			GOOS=windows GOARCH=386 go build -ldflags="-H windowsgui" -o ../builds/carla-discovery-win32.exe carla-discovery.go ;)
 
 finalize: proxy
-	cp Carla/Carla/Carla-2.3.1-win64.zip builds/
-	cd builds && unzip Carla-2.3.1-win64.zip
+	cp Carla/Carla/Carla-2.4.0-win64.zip builds/
+	cd builds && unzip Carla-2.4.0-win64.zip
 	cd builds/Carla-*/ && bash -c 'for app in Carla Carla.lv2 Carla.vst; do \
 		(cd $$app ; \
 			mv carla-discovery-win32.exe _carla-discovery-win32.exe ; \
@@ -39,7 +36,7 @@ finalize: proxy
 			cp ../../carla-*-*.exe . ; \
 		cd ..) ; \
 	done'
-	cd builds/Carla-2.3.1-win64 && cp -R . ../../dist/
+	cd builds/Carla-2.4.0-win64 && cp -R . ../../dist/
 
 submodule:
 	git submodule update --init --recursive
